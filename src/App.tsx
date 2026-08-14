@@ -21,7 +21,8 @@ import {
   Calendar,
   BarChart3,
   Cpu,
-  Loader2
+  Loader2,
+  Terminal
 } from 'lucide-react';
 import LocalLabBanner from './components/LocalLabBanner.tsx';
 import SEO from './components/SEO.tsx';
@@ -32,6 +33,7 @@ import { ToastProvider } from './components/Toast.tsx';
 
 // Code-split dynamic views with React.lazy for optimized bundle performance
 const IntakeForm = lazy(() => import('./components/IntakeForm.tsx'));
+const HardwareDiagnosticTool = lazy(() => import('./components/HardwareDiagnosticTool.tsx'));
 const FeaturedProducts = lazy(() => import('./components/FeaturedProducts.tsx'));
 const AboutUs = lazy(() => import('./components/AboutUs.tsx'));
 const Reviews = lazy(() => import('./components/Reviews.tsx'));
@@ -59,12 +61,13 @@ function TabLoadingSkeleton() {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'intake' | 'matrix' | 'calc' | 'track' | 'booking' | 'analytics' | 'academy' | 'support' | 'about' | 'blueprint'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'intake' | 'hardware_diag' | 'matrix' | 'calc' | 'track' | 'booking' | 'analytics' | 'academy' | 'support' | 'about' | 'blueprint'>('home');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const tabs = [
     { id: 'home', label: 'Laboratory Store', icon: Smartphone },
     { id: 'intake', label: 'Device Intake', icon: Microscope },
+    { id: 'hardware_diag', label: 'Hardware Diag Port', icon: Terminal },
     { id: 'matrix', label: 'Board Database', icon: Cpu },
     { id: 'booking', label: 'Book Drop-Off', icon: Calendar },
     { id: 'calc', label: 'Price Guide', icon: Calculator },
@@ -233,6 +236,18 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.98 }}
               >
                 <IntakeForm />
+              </motion.div>
+            )}
+
+            {activeTab === 'hardware_diag' && (
+              <motion.div
+                key="hardware_diag"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="max-w-6xl mx-auto px-4"
+              >
+                <HardwareDiagnosticTool standalone />
               </motion.div>
             )}
 

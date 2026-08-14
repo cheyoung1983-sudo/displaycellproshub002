@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-export type TabType = 'home' | 'intake' | 'matrix' | 'calc' | 'track' | 'booking' | 'analytics' | 'academy' | 'support' | 'about' | 'blueprint';
+export type TabType = 'home' | 'intake' | 'hardware_diag' | 'matrix' | 'calc' | 'track' | 'booking' | 'analytics' | 'academy' | 'support' | 'about' | 'blueprint';
 
 interface SEOProps {
   activeTab: TabType;
@@ -18,6 +18,11 @@ const TAB_META_MAP: Record<TabType, { title: string; description: string; keywor
     title: 'Device Repair Intake & Diagnostic Ticket | D&CP LLC',
     description: 'Submit your device for component-level diagnosis, micro-soldering, OLED replacement, or liquid damage restoration with instant order sync.',
     keywords: 'device intake, repair ticket, logic board repair, screen replacement, liquid damage recovery, diagnostic scan'
+  },
+  hardware_diag: {
+    title: 'WebUSB Hardware Diagnostic Port & Serial Monitor | D&CP LLC',
+    description: 'Real-time serial port monitor and hardware logic analyzer for technicians to read live diagnostic codes, VBUS voltage, and PMIC thermal telemetry via WebUSB.',
+    keywords: 'WebUSB diagnostic tool, serial port monitor, logic analyzer, diagnostic codes, UART console, Spokane repair lab'
   },
   matrix: {
     title: 'Board Repair Support Matrix & Device Database | D&CP LLC',

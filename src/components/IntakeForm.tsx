@@ -26,7 +26,10 @@ import {
   TrendingUp,
   Camera,
   Image as ImageIcon,
-  Tag
+  Tag,
+  Barcode,
+  QrCode,
+  ScanLine
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -47,6 +50,8 @@ import DevicePhotoCaptureInput from './DevicePhotoCaptureInput.tsx';
 import CommonRepairChecklist from './CommonRepairChecklist.tsx';
 import RecommendedDiagnosticPath from './RecommendedDiagnosticPath.tsx';
 import DeviceModelAutocomplete from './DeviceModelAutocomplete.tsx';
+import BarcodeScannerModal, { ScannedHardwareData } from './BarcodeScannerModal.tsx';
+import HardwareDiagnosticTool from './HardwareDiagnosticTool.tsx';
 import { broadcastTechnicianIntakeAlert } from '../lib/technicianEvents.ts';
 
 const STEPS = [
@@ -72,7 +77,65 @@ export default function IntakeForm() {
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const [devicePhotos, setDevicePhotos] = useState<CapturedPhoto[]>([]);
   const [selectedSymptomIds, setSelectedSymptomIds] = useState<string[]>([]);
-  const [triageSubTab, setTriageSubTab] = useState<'telemetry' | 'pre_checks' | 'smart_triage' | 'diag_path' | 'camera' | 'checklist'>('telemetry');
+  const [triageSubTab, setTriageSubTab] = useState<'telemetry' | 'hardware_diag' | 'pre_checks' | 'smart_triage' | 'diag_path' | 'camera' | 'checklist'>('telemetry');
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
+
+  const handleBarcodeScanSuccess = (data: ScannedHardwareData) => {
+    let appliedUpdates: string[] = [];
+
+    // 1. Handle IMEI
+    if (data.imei) {
+      setValue('imei', data.imei, { shouldValidate: true, shouldDirty: true });
+      appliedUpdates.push(`IMEI: ${data.imei}`);
+    } else if (data.type === 'imei' && data.rawValue) {
+      const digits = data.rawValue.replace(/[^0-9]/g, '');
+      if (digits.length === 15) {
+        setValue('imei', digits, { shouldValidate: true, shouldDirty: true });
+        appliedUpdates.push(`IMEI: ${digits}`);
+      }
+    }
+
+    // 2. Handle Manufacturer & Model if decoded or auto-inferred
+    if (data.manufacturer) {
+      const mfrLower = data.manufacturer.toLowerCase();
+      if (mfrLower.includes('apple') || mfrLower.includes('iphone') || mfrLower.includes('ipad')) {
+        setValue('deviceManufacturer', Manufacturer.APPLE, { shouldValidate: true, shouldDirty: true });
+      } else if (mfrLower.includes('samsung') || mfrLower.includes('galaxy')) {
+        setValue('deviceManufacturer', Manufacturer.SAMSUNG, { shouldValidate: true, shouldDirty: true });
+      } else {
+        setValue('deviceManufacturer', Manufacturer.OTHER, { shouldValidate: true, shouldDirty: true });
+      }
+    }
+
+    if (data.deviceModel) {
+      setValue('deviceModel', data.deviceModel, { shouldValidate: true, shouldDirty: true });
+      appliedUpdates.push(`Model: ${data.deviceModel}`);
+    }
+
+    // 3. Handle Ticket ID / Serial
+    if (data.ticketId) {
+      const existing = watch('customerReportedIssue') || '';
+      const ticketRef = `[Scanned Work Order Ticket Ref: ${data.ticketId}]`;
+      if (!existing.includes(ticketRef)) {
+        setValue('customerReportedIssue', existing ? `${ticketRef}\n${existing}` : ticketRef, { shouldValidate: true, shouldDirty: true });
+      }
+      appliedUpdates.push(`Ticket Ref: ${data.ticketId}`);
+    } else if (data.serialNumber && !data.imei) {
+      // If pure serial number without 15-digit IMEI
+      const existing = watch('customerReportedIssue') || '';
+      const serialRef = `[Device Serial Number: ${data.serialNumber}]`;
+      if (!existing.includes(serialRef)) {
+        setValue('customerReportedIssue', existing ? `${serialRef}\n${existing}` : serialRef, { shouldValidate: true, shouldDirty: true });
+      }
+      appliedUpdates.push(`Serial: ${data.serialNumber}`);
+    }
+
+    if (appliedUpdates.length > 0) {
+      showToast(`Scanned Optical Barcode/QR: ${appliedUpdates.join(' • ')}`, 'success');
+    } else {
+      showToast(`Scanned value: ${data.rawValue}`, 'info');
+    }
+  };
 
   const handleApplyChecklistToNotes = (notes: string) => {
     const existing = watch('customerReportedIssue') || '';
@@ -685,9 +748,19 @@ export default function IntakeForm() {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-8 flex-1"
             >
-              <div>
-                <h2 className="text-3xl font-playfair font-black text-slate-900 mb-2">Device Reconnaissance</h2>
-                <p className="text-slate-500">Identify the hardware unit and authenticate its global identifier.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-playfair font-black text-slate-900 mb-2">Device Reconnaissance</h2>
+                  <p className="text-slate-500">Identify the hardware unit and authenticate its global identifier.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsBarcodeScannerOpen(true)}
+                  className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold text-xs flex items-center gap-2 shadow-md shadow-slate-900/10 transition-all self-start sm:self-auto cursor-pointer"
+                >
+                  <Barcode className="w-4 h-4 text-blue-400" />
+                  <span>Scan Barcode / Ticket</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -718,13 +791,33 @@ export default function IntakeForm() {
                 </div>
 
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">IMEI (15 Digits)</label>
-                  <input 
-                    {...register('imei')}
-                    placeholder="Enter 15-digit IMEI"
-                    maxLength={15}
-                    className="w-full h-12 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-slate-900 focus:bg-white outline-none transition-all font-mono tracking-widest text-lg"
-                  />
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">IMEI (15 Digits)</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsBarcodeScannerOpen(true)}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ScanLine className="w-3.5 h-3.5 text-blue-500" />
+                      <span>Scan Barcode / QR with Camera</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input 
+                      {...register('imei')}
+                      placeholder="Enter 15-digit IMEI"
+                      maxLength={15}
+                      className="w-full h-12 pl-4 pr-12 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-slate-900 focus:bg-white outline-none transition-all font-mono tracking-widest text-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsBarcodeScannerOpen(true)}
+                      title="Open Optical Scanner"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                    >
+                      <Barcode className="w-5 h-5" />
+                    </button>
+                  </div>
                   {errors.imei && <p className="text-red-500 text-xs mt-1">{errors.imei.message}</p>}
                 </div>
 
@@ -765,11 +858,12 @@ export default function IntakeForm() {
               <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
                 {[
                   { id: 'telemetry', label: '1. Service & Telemetry' },
-                  { id: 'pre_checks', label: '2. Common Pre-Checks' },
-                  { id: 'smart_triage', label: '3. Smart Triage (AI)' },
-                  { id: 'diag_path', label: '4. Diagnostic Path (AI)' },
-                  { id: 'camera', label: `5. Photos (${devicePhotos.length})` },
-                  { id: 'checklist', label: '6. Tech QA Checklist' },
+                  { id: 'hardware_diag', label: '2. WebUSB / Serial Port' },
+                  { id: 'pre_checks', label: '3. Common Pre-Checks' },
+                  { id: 'smart_triage', label: '4. Smart Triage (AI)' },
+                  { id: 'diag_path', label: '5. Diagnostic Path (AI)' },
+                  { id: 'camera', label: `6. Photos (${devicePhotos.length})` },
+                  { id: 'checklist', label: '7. Tech QA Checklist' },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -939,6 +1033,23 @@ export default function IntakeForm() {
                 </div>
               </div>
             )}
+
+              {triageSubTab === 'hardware_diag' && (
+                <div className="space-y-4">
+                  <HardwareDiagnosticTool
+                    onApplyDiagnosticCode={(code, description) => {
+                      const existing = watch('customerReportedIssue') || '';
+                      const diagEntry = `[WebUSB/Serial Diagnostic Code: ${code} - ${description}]`;
+                      if (!existing.includes(code)) {
+                        setValue('customerReportedIssue', existing ? `${existing.trim()}\n${diagEntry}` : diagEntry, { shouldValidate: true, shouldDirty: true });
+                        showToast(`Applied ${code} to Issue Description notes.`, 'success');
+                      } else {
+                        showToast(`Diagnostic code ${code} is already in the issue notes.`, 'info');
+                      }
+                    }}
+                  />
+                </div>
+              )}
 
               {triageSubTab === 'pre_checks' && (
                 <CommonRepairChecklist
@@ -1394,6 +1505,14 @@ export default function IntakeForm() {
           </div>
         </aside>
       </div>
+
+      {/* Optical Barcode / QR Scanner Modal for Hardware Serial & IMEI */}
+      <BarcodeScannerModal
+        isOpen={isBarcodeScannerOpen}
+        onClose={() => setIsBarcodeScannerOpen(false)}
+        onScanSuccess={handleBarcodeScanSuccess}
+        targetField="imei"
+      />
     </div>
   );
 }
