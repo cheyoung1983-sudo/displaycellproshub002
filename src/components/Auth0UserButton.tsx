@@ -7,15 +7,19 @@ import {
   Key, 
   CheckCircle2, 
   AlertCircle, 
-  ExternalLink,
-  ChevronDown,
-  Sparkles,
-  Lock,
-  Loader2
+  ExternalLink, 
+  ChevronDown, 
+  Sparkles, 
+  Lock, 
+  Loader2,
+  Shield,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSafeAuth0 } from './Auth0ProviderWithConfig.tsx';
 import { useToast } from './Toast.tsx';
+import { evaluateUserRbac } from '../lib/auth0Rbac.ts';
+import Auth0RbacModal from './Auth0RbacModal.tsx';
 
 export default function Auth0UserButton() {
   const { 
@@ -31,7 +35,10 @@ export default function Auth0UserButton() {
   const { showToast } = useToast();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showRbacModal, setShowRbacModal] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const authProfile = evaluateUserRbac(user);
 
   const handleLogin = async (usePopup = false) => {
     if (!isConfigured) {
@@ -95,12 +102,21 @@ export default function Auth0UserButton() {
               </div>
             )}
             <div className="text-left hidden lg:block">
-              <div className="text-[11px] font-black leading-none truncate max-w-[110px]">
-                {user.name || user.email?.split('@')[0]}
+              <div className="text-[11px] font-black leading-none truncate max-w-[110px] flex items-center gap-1">
+                <span>{user.name || user.email?.split('@')[0]}</span>
               </div>
-              <div className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Auth0 Verified
+              <div className="text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                {authProfile.isSuperAdmin ? (
+                  <span className="text-amber-400 font-black flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    SuperAdmin
+                  </span>
+                ) : (
+                  <span className="text-emerald-400 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Auth0 Verified
+                  </span>
+                )}
               </div>
             </div>
             <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
@@ -113,7 +129,7 @@ export default function Auth0UserButton() {
                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute right-0 mt-2 w-72 bg-slate-900 text-white rounded-3xl p-4 shadow-2xl border border-slate-800 z-50 space-y-3"
+                className="absolute right-0 mt-2 w-80 bg-slate-900 text-white rounded-3xl p-4 shadow-2xl border border-slate-800 z-50 space-y-3"
               >
                 <div className="flex items-center gap-3 border-b border-slate-800 pb-3">
                   {user.picture ? (
@@ -129,7 +145,14 @@ export default function Auth0UserButton() {
                     </div>
                   )}
                   <div className="overflow-hidden">
-                    <div className="font-black text-sm text-white truncate">{user.name || 'Lab Engineer'}</div>
+                    <div className="font-black text-sm text-white truncate flex items-center gap-1.5">
+                      <span>{user.name || 'Lab Engineer'}</span>
+                      {authProfile.isSuperAdmin && (
+                        <span className="px-1.5 py-0.2 bg-amber-500/20 text-amber-300 font-mono text-[9px] rounded font-bold">
+                          Root
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[11px] text-slate-400 truncate">{user.email}</div>
                   </div>
                 </div>
@@ -137,16 +160,19 @@ export default function Auth0UserButton() {
                 <div className="space-y-1.5 text-xs">
                   <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 space-y-1">
                     <div className="text-[10px] uppercase font-mono text-slate-400 font-bold tracking-wider flex items-center justify-between">
-                      <span>Auth Security Level</span>
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>RBAC Access Role</span>
+                      <Shield className="w-3.5 h-3.5 text-amber-400" />
                     </div>
-                    <div className="text-slate-200 font-bold flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      OIDC / PKCE Verified
+                    <div className="text-amber-300 font-mono font-bold text-xs flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-400" />
+                      {authProfile.groups.join(', ') || 'SuperAdmin'}
+                      {authProfile.hasDcpPermission && (
+                        <span className="text-blue-400 text-[10px] font-mono">({authProfile.permissions.join(', ')})</span>
+                      )}
                     </div>
                     {user.sub && (
-                      <div className="text-[9px] text-slate-500 font-mono truncate">
-                        ID: {user.sub}
+                      <div className="text-[9px] text-slate-500 font-mono truncate pt-0.5">
+                        SUB: {user.sub}
                       </div>
                     )}
                   </div>
@@ -156,12 +182,23 @@ export default function Auth0UserButton() {
                   <button
                     onClick={() => {
                       setIsDropdownOpen(false);
+                      setShowRbacModal(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-amber-300 hover:text-amber-200 hover:bg-slate-800 transition-colors"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Auth0 RBAC Extension Config</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
                       setShowConfigModal(true);
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
                   >
                     <Key className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Auth0 Configuration Info</span>
+                    <span>Domain & Client Settings</span>
                   </button>
 
                   <button
@@ -193,6 +230,12 @@ export default function Auth0UserButton() {
           </button>
         </div>
       )}
+
+      {/* Auth0 RBAC Extension Modal */}
+      <Auth0RbacModal
+        isOpen={showRbacModal}
+        onClose={() => setShowRbacModal(false)}
+      />
 
       {/* Auth0 Setup & Info Modal */}
       <AnimatePresence>
