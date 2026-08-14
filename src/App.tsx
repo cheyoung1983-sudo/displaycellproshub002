@@ -421,12 +421,8 @@ export default function App() {
           </div>
         </div>
       </footer>
-      {import.meta.env.PROD && typeof window !== 'undefined' && window.location.hostname.includes('vercel') && (
-        <>
-          <Analytics />
-          <SpeedInsights />
-        </>
-      )}
+      <Analytics />
+      <SpeedInsights />
     </div>
     </ToastProvider>
   );
