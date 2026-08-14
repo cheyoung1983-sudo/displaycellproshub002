@@ -59,7 +59,7 @@ Produce a structured JSON plan with step-by-step bench actions, expected reading
 `;
 
         const aiPromise = ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-1.5-flash',
           contents: prompt,
           config: {
             responseMimeType: 'application/json',
@@ -109,7 +109,7 @@ Produce a structured JSON plan with step-by-step bench actions, expected reading
         const result = await Promise.race([aiPromise, timeoutPromise]);
 
         if (result && 'text' in result && result.text) {
-          const parsed = JSON.parse(result.text);
+          const parsed = JSON.parse(result.text.replace(/```json\n?|```\n?/g, '').trim());
           return res.status(200).json({ success: true, path: parsed });
         }
       } catch (geminiErr) {

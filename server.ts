@@ -5,7 +5,7 @@
 
 import express from 'express';
 import path from 'path';
-import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { getToken, getTokenResponse } from '@vercel/connect';
 import { handleVercelConnectError } from './src/utils/vercelConnect.ts';
 import {
@@ -402,7 +402,7 @@ const ai = new GoogleGenAI({
           `;
 
           const aiPromise = ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: prompt,
           });
 
@@ -481,7 +481,7 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
           `;
 
           const aiPromise = ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: prompt,
             config: {
               responseMimeType: 'application/json',
@@ -491,7 +491,7 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
           const response = await withTimeout(aiPromise, 4000, null);
 
           if (response?.text) {
-            const parsed = JSON.parse(response.text);
+            const parsed = JSON.parse(response.text.replace(/```json\n?|```\n?/g, '').trim());
             triageCache.set(cacheKey, parsed);
             return res.json({ success: true, triage: parsed });
           }
@@ -585,10 +585,10 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
   const handleDiagnosticPath = async (req: express.Request, res: express.Response) => {
     const parseResult = DiagnosticPathSchema.safeParse(req.body);
     const { 
-      repairNotes = '', 
-      deviceManufacturer = 'Unknown', 
-      deviceModel = 'Device', 
-      symptoms = [], 
+      repairNotes,
+      deviceManufacturer,
+      deviceModel,
+      symptoms,
       telemetry 
     } = parseResult.success ? parseResult.data : {
       repairNotes: '',
@@ -627,7 +627,7 @@ Produce a structured JSON plan with step-by-step bench actions, expected reading
 `;
 
           const aiPromise = ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: prompt,
             config: {
               responseMimeType: 'application/json',
@@ -675,7 +675,7 @@ Produce a structured JSON plan with step-by-step bench actions, expected reading
           const response = await withTimeout(aiPromise, 4500, null);
 
           if (response?.text) {
-            const parsed = JSON.parse(response.text);
+            const parsed = JSON.parse(response.text.replace(/```json\n?|```\n?/g, '').trim());
             return res.json({ success: true, path: parsed });
           }
         } catch (aiErr) {
@@ -720,13 +720,13 @@ Produce a structured JSON plan with step-by-step bench actions, expected reading
     try {
       const parseResult = CalculateCompletionSchema.safeParse(req.body);
       const {
-        serviceTier = 'Tier 2 (Display Renewal)',
-        currentStage = 1,
-        queuePosition = 3,
-        totalQueueJobs = 12,
-        activeTechnicians = 3,
-        partsInStock = true,
-        priorityExpress = 'standard'
+        serviceTier,
+        currentStage,
+        queuePosition,
+        totalQueueJobs,
+        activeTechnicians,
+        partsInStock,
+        priorityExpress
       } = parseResult.success ? parseResult.data : {
         serviceTier: 'Tier 2 (Display Renewal)',
         currentStage: 1,
@@ -1014,7 +1014,7 @@ Provide clear technical guidance, reassure data privacy, and suggest next steps 
           const userPrompt = `Recent Chat History:\n${historyText}\n\nCustomer Message: "${message}"\n\nProvide David Chen's reply:`;
 
           const aiPromise = ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: userPrompt,
             config: {
               systemInstruction: systemPrompt,
@@ -1123,7 +1123,7 @@ Generate exactly 4-5 well-thought-out scenes.
           `;
 
           const aiPromise = ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: prompt,
             config: {
               responseMimeType: 'application/json',
@@ -1133,7 +1133,7 @@ Generate exactly 4-5 well-thought-out scenes.
           const response = await withTimeout(aiPromise, 4000, null);
 
           if (response?.text) {
-            const parsed = JSON.parse(response.text);
+            const parsed = JSON.parse(response.text.replace(/```json\n?|```\n?/g, '').trim());
             videoGuideCache.set(cacheKey, parsed);
             return res.json({ success: true, video: parsed });
           }

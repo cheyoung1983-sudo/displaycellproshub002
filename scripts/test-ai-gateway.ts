@@ -64,7 +64,7 @@ async function main() {
     }
   });
 
-  const modelId = process.argv[2] || 'google/gemini-2.5-flash';
+  const modelId = process.argv[2] || 'google/gemini-1.5-flash';
   console.log(`Target Model: ${modelId}`);
 
   try {
