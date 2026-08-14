@@ -36,6 +36,26 @@ app.use(securityHeadersMiddleware);
 
 app.use(express.json({ limit: '10mb' }));
 
+// Explicitly serve public directory static assets with optimal MIME types & headers
+const publicDirectoryPath = path.join(process.cwd(), 'public');
+app.use(express.static(publicDirectoryPath, {
+  maxAge: '1d',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('manifest.json') || filePath.endsWith('manifest.webmanifest')) {
+      res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    } else if (filePath.endsWith('sw.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Service-Worker-Allowed', '/');
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    } else if (filePath.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (filePath.endsWith('.svg')) {
+      res.setHeader('Content-Type', 'image/svg+xml');
+    }
+  }
+}));
+
 // Rate limiters for abuse prevention
 const aiRateLimiter = createRateLimiter({
   maxRequests: 60,
@@ -121,6 +141,34 @@ app.get('/api/db/indexes/suggestions', async (_req, res) => {
     });
   } catch (error: any) {
     res.status(500).json({ status: 'error', message: error.message || 'Error fetching index recommendations' });
+  }
+});
+
+// Execute B-Tree Index Migration for supported_devices table (device_model, repair_category)
+app.post('/api/db/migrate/indexes', async (_req, res) => {
+  try {
+    const { runSupportedDevicesIndexMigration } = await import('./src/lib/db.ts');
+    const result = await runSupportedDevicesIndexMigration();
+    res.json({
+      status: 'ok',
+      ...result
+    });
+  } catch (error: any) {
+    res.status(500).json({ status: 'error', message: error.message || 'Migration execution failed' });
+  }
+});
+
+app.get('/api/db/migrate/indexes', async (_req, res) => {
+  try {
+    const { runSupportedDevicesIndexMigration, SUPPORTED_DEVICES_INDEX_MIGRATION_SQL } = await import('./src/lib/db.ts');
+    const result = await runSupportedDevicesIndexMigration();
+    res.json({
+      status: 'ok',
+      sql: SUPPORTED_DEVICES_INDEX_MIGRATION_SQL,
+      ...result
+    });
+  } catch (error: any) {
+    res.status(500).json({ status: 'error', message: error.message || 'Migration verification failed' });
   }
 });
 

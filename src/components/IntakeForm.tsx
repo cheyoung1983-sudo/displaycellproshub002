@@ -47,6 +47,7 @@ import DevicePhotoCaptureInput from './DevicePhotoCaptureInput.tsx';
 import CommonRepairChecklist from './CommonRepairChecklist.tsx';
 import RecommendedDiagnosticPath from './RecommendedDiagnosticPath.tsx';
 import DeviceModelAutocomplete from './DeviceModelAutocomplete.tsx';
+import { broadcastTechnicianIntakeAlert } from '../lib/technicianEvents.ts';
 
 const STEPS = [
   { id: 1, name: 'Reconnaissance', icon: Smartphone },
@@ -420,10 +421,12 @@ export default function IntakeForm() {
         });
         
         // Persist to local history
+        const generatedTicketNumber = `DCP-${Math.floor(8800 + Math.random() * 1199)}`;
         const newEntry = {
           ...data,
           devicePhotos,
           id: res.draftOrderId,
+          ticketNumber: generatedTicketNumber,
           date: new Date().toISOString(),
           quote
         };
@@ -431,6 +434,19 @@ export default function IntakeForm() {
         setHistory(updatedHistory);
         localStorage.setItem('dcp_repairs', JSON.stringify(updatedHistory));
         
+        // Broadcast real-time technician intake alert across tabs and live session
+        broadcastTechnicianIntakeAlert({
+          draftOrderId: res.draftOrderId,
+          ticketNumber: generatedTicketNumber,
+          customerName: data.customerName || 'Intake Client',
+          deviceModel: data.deviceModel || 'Handheld Unit',
+          deviceManufacturer: data.deviceManufacturer || 'Device',
+          serviceTier: data.serviceTier || 'Tier 2 (Display Renewal)',
+          issueDescription: data.customerReportedIssue || 'Intake diagnostic assessment requested.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          attachedPhotoCount: devicePhotos.length
+        });
+
         showToast(`Device intake synchronized with Spokane Lab (${devicePhotos.length} damage photos attached).`, 'success');
         setStep(5);
       }

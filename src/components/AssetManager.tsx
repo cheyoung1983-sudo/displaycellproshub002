@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
+  BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, Legend 
+} from 'recharts';
+import { 
   Package, 
   AlertTriangle, 
   Plus, 
@@ -21,7 +25,15 @@ import {
   Trash2, 
   Edit, 
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  TrendingUp,
+  Activity,
+  GitMerge,
+  ArrowUpRight,
+  PieChart as PieIcon,
+  RotateCcw,
+  Sparkles,
+  ShieldCheck
 } from 'lucide-react';
 import { useToast } from './Toast.tsx';
 
@@ -137,9 +149,126 @@ const INITIAL_PARTS: RepairPartAsset[] = [
   }
 ];
 
+export interface ComponentRepairCorrelation {
+  sku: string;
+  partName: string;
+  category: string;
+  associatedRepairTier: string;
+  failureMode: string;
+  repairsCompleted30d: number;
+  unitsConsumed30d: number;
+  reworkLossRate: number;
+  weeklyVelocity: number;
+  daysOfSupplyLeft: number;
+  status: 'critical' | 'warning' | 'healthy';
+}
+
+const REPAIR_CORRELATION_DATA: ComponentRepairCorrelation[] = [
+  {
+    sku: 'SKU-SCR-IP15P',
+    partName: 'iPhone 15 Pro OLED Display Assembly',
+    category: 'Screens',
+    associatedRepairTier: 'Tier 2 (Display Renewal)',
+    failureMode: 'Cracked OLED / Digitizer',
+    repairsCompleted30d: 48,
+    unitsConsumed30d: 50,
+    reworkLossRate: 4.1,
+    weeklyVelocity: 11.6,
+    daysOfSupplyLeft: 1.8,
+    status: 'critical'
+  },
+  {
+    sku: 'SKU-BAT-MAC16',
+    partName: 'MacBook Pro 16" M2/M3 Battery Pack',
+    category: 'Batteries',
+    associatedRepairTier: 'Tier 2 (Power Subsystem)',
+    failureMode: 'Battery Degradation / Swelling',
+    repairsCompleted30d: 26,
+    unitsConsumed30d: 26,
+    reworkLossRate: 0.0,
+    weeklyVelocity: 6.1,
+    daysOfSupplyLeft: 4.5,
+    status: 'warning'
+  },
+  {
+    sku: 'SKU-PRT-USBC-IP15',
+    partName: 'iPhone 15 Series USB-C Flex Port',
+    category: 'Charging Ports',
+    associatedRepairTier: 'Tier 1 (I/O Port & Aux)',
+    failureMode: 'USB-C / Lightning Port Wear',
+    repairsCompleted30d: 19,
+    unitsConsumed30d: 20,
+    reworkLossRate: 5.0,
+    weeklyVelocity: 4.5,
+    daysOfSupplyLeft: 1.5,
+    status: 'critical'
+  },
+  {
+    sku: 'SKU-IC-ISL6259',
+    partName: 'ISL6259AHRTZ Charging PMIC IC',
+    category: 'Chips & ICs',
+    associatedRepairTier: 'Tier 3 (Board Rework)',
+    failureMode: 'PMIC / Power Rail Short',
+    repairsCompleted30d: 34,
+    unitsConsumed30d: 38,
+    reworkLossRate: 10.5,
+    weeklyVelocity: 8.8,
+    daysOfSupplyLeft: 11.2,
+    status: 'healthy'
+  },
+  {
+    sku: 'SKU-SCR-S24U',
+    partName: 'Galaxy S24 Ultra AMOLED 2X Frame',
+    category: 'Screens',
+    associatedRepairTier: 'Tier 2 (Display Renewal)',
+    failureMode: 'Cracked OLED / Digitizer',
+    repairsCompleted30d: 22,
+    unitsConsumed30d: 23,
+    reworkLossRate: 4.3,
+    weeklyVelocity: 5.3,
+    daysOfSupplyLeft: 1.3,
+    status: 'critical'
+  },
+  {
+    sku: 'SKU-BAT-IP14P',
+    partName: 'iPhone 14 Pro Original Battery',
+    category: 'Batteries',
+    associatedRepairTier: 'Tier 2 (Power Subsystem)',
+    failureMode: 'Battery Degradation / Swelling',
+    repairsCompleted30d: 42,
+    unitsConsumed30d: 43,
+    reworkLossRate: 2.3,
+    weeklyVelocity: 9.8,
+    daysOfSupplyLeft: 8.5,
+    status: 'healthy'
+  },
+  {
+    sku: 'SKU-GLS-IP15PM',
+    partName: 'iPhone 15 Pro Max Rear Glass MagSafe',
+    category: 'Glass & Frames',
+    associatedRepairTier: 'Tier 1 (Cosmetic / Shell)',
+    failureMode: 'Shattered Rear Housing Panel',
+    repairsCompleted30d: 18,
+    unitsConsumed30d: 19,
+    reworkLossRate: 5.2,
+    weeklyVelocity: 4.2,
+    daysOfSupplyLeft: 11.6,
+    status: 'healthy'
+  }
+];
+
+const CATEGORY_CORRELATION_CHART_DATA = [
+  { category: 'Display Renewals', completedRepairs: 70, partsConsumed: 73, ratio: '1.04x' },
+  { category: 'Battery Replacements', completedRepairs: 68, partsConsumed: 69, ratio: '1.01x' },
+  { category: 'Micro-Soldering PMIC', completedRepairs: 34, partsConsumed: 38, ratio: '1.12x' },
+  { category: 'USB-C Port Assembly', completedRepairs: 19, partsConsumed: 20, ratio: '1.05x' },
+  { category: 'Rear Glass Rework', completedRepairs: 18, partsConsumed: 19, ratio: '1.05x' },
+];
+
 export default function AssetManager() {
   const { showToast } = useToast();
 
+  const [activeViewMode, setActiveViewMode] = useState<'catalog' | 'correlation'>('catalog');
   const [parts, setParts] = useState<RepairPartAsset[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -290,6 +419,37 @@ export default function AssetManager() {
     showToast(`Exported Supplier Purchase Order CSV for ${lowStockParts.length} low-stock parts.`, 'success');
   };
 
+  // Export Component Usage & Repair Correlation CSV
+  const exportCorrelationCSV = () => {
+    const csvRows = [
+      ['SKU', 'Component Name', 'Category', 'Associated Repair Tier', 'Failure Mode', 'Repairs Completed (30d)', 'Units Consumed (30d)', 'Rework/Scrap Loss (%)', 'Weekly Burn Velocity', 'Days of Supply Left', 'Stock Status'],
+      ...REPAIR_CORRELATION_DATA.map(item => [
+        item.sku,
+        `"${item.partName}"`,
+        item.category,
+        `"${item.associatedRepairTier}"`,
+        `"${item.failureMode}"`,
+        item.repairsCompleted30d,
+        item.unitsConsumed30d,
+        `${item.reworkLossRate}%`,
+        item.weeklyVelocity,
+        item.daysOfSupplyLeft,
+        item.status.toUpperCase()
+      ])
+    ];
+
+    const csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Spokane_Parts_Usage_Repair_Correlation_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showToast(`Exported Component Stock vs. Completed Repairs Correlation Report (.CSV)`, 'success');
+  };
+
   return (
     <div className="bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 md:p-8 space-y-8 shadow-2xl relative overflow-hidden">
       {/* Background Accent Glow */}
@@ -315,15 +475,54 @@ export default function AssetManager() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsAddingPart(true)}
-            className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-lg shadow-amber-500/20"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add New SKU Part</span>
-          </button>
+          {/* View Mode Toggle */}
+          <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-1">
+            <button
+              onClick={() => setActiveViewMode('catalog')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeViewMode === 'catalog'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>Stock Catalog ({parts.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveViewMode('correlation')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeViewMode === 'correlation'
+                  ? 'bg-blue-600 text-white font-black shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <GitMerge className="w-3.5 h-3.5 text-blue-400" />
+              <span>Repairs Correlation</span>
+            </button>
+          </div>
+
+          {activeViewMode === 'catalog' ? (
+            <button
+              onClick={() => setIsAddingPart(true)}
+              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-lg shadow-amber-500/20"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New SKU Part</span>
+            </button>
+          ) : (
+            <button
+              onClick={exportCorrelationCSV}
+              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-lg shadow-blue-600/20"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export Correlation CSV</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {activeViewMode === 'catalog' ? (
+        <div className="space-y-8">
 
       {/* Urgent Low-Stock Notification Banner */}
       {totalLowStockCount > 0 && (
@@ -679,6 +878,203 @@ export default function AssetManager() {
           <Package className="w-10 h-10 text-slate-700 mx-auto" />
           <h5 className="text-sm font-bold text-slate-400">No Parts Matching Filter</h5>
           <p className="text-xs">Try clearing your search query or category selection.</p>
+        </div>
+      )}
+        </div>
+      ) : (
+        /* Component Stock vs Completed Repairs Correlation View */
+        <div className="space-y-8 relative z-10">
+          {/* Correlation KPI Overview Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                Completed Repairs (30d)
+              </span>
+              <span className="text-2xl font-black text-white">209 Work Orders</span>
+              <span className="text-[10px] text-slate-500 block">Across 5 primary laboratory tiers</span>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Cpu className="w-3.5 h-3.5 text-blue-400" />
+                Components Consumed
+              </span>
+              <span className="text-2xl font-black text-blue-400">219 Physical Units</span>
+              <span className="text-[10px] text-slate-500 block">1.048x Avg Component-to-Job Ratio</span>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                Critical Burn Velocity
+              </span>
+              <span className="text-2xl font-black text-amber-400">3 SKUs &lt; 2 Days</span>
+              <span className="text-[10px] text-slate-500 block">Immediate restock required</span>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                Rework Scrap Rate
+              </span>
+              <span className="text-2xl font-black text-indigo-400">4.58% Average</span>
+              <span className="text-[10px] text-slate-500 block">Exceeds IPC-A-610 Class 3 standard</span>
+            </div>
+          </div>
+
+          {/* Correlation Chart: Completed Repairs vs Components Consumed */}
+          <div className="bg-slate-950 border border-slate-800 p-6 rounded-3xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-400" />
+                  <span>Repair Category vs. Component Depletion Correlation</span>
+                </h4>
+                <p className="text-xs text-slate-400">
+                  Tracks exact physical component consumption per repair tier category and highlights rework variance
+                </p>
+              </div>
+              <span className="text-[10px] font-mono font-bold bg-blue-500/10 text-blue-300 px-2.5 py-1 rounded-lg border border-blue-500/20">
+                30-Day Rolling Telemetry
+              </span>
+            </div>
+
+            <div className="h-72 w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={CATEGORY_CORRELATION_CHART_DATA}
+                  margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                  <XAxis dataKey="category" stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                  <YAxis stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0f172a',
+                      borderColor: '#334155',
+                      borderRadius: '1rem',
+                      color: '#f8fafc',
+                      fontSize: '12px',
+                    }}
+                    cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
+                  />
+                  <Bar dataKey="completedRepairs" name="Completed Repairs" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="partsConsumed" name="Components Consumed" fill="#f59e0b" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Comprehensive Correlation Matrix Table */}
+          <div className="bg-slate-950 border border-slate-800 rounded-3xl overflow-hidden space-y-4 p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                  <GitMerge className="w-4 h-4 text-amber-400" />
+                  <span>Component Correlation & Depletion Velocity Matrix</span>
+                </h4>
+                <p className="text-xs text-slate-400">
+                  Correlates completed customer repair work orders with component burn rate and projected stock exhaustion
+                </p>
+              </div>
+
+              <button
+                onClick={exportCorrelationCSV}
+                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Matrix CSV</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                    <th className="pb-3 pr-4">Component SKU & Name</th>
+                    <th className="pb-3 px-3">Correlated Repair Tier</th>
+                    <th className="pb-3 px-3 text-center">Repairs Completed</th>
+                    <th className="pb-3 px-3 text-center">Units Consumed</th>
+                    <th className="pb-3 px-3 text-center">Weekly Velocity</th>
+                    <th className="pb-3 px-3 text-center">Days of Supply</th>
+                    <th className="pb-3 pl-3 text-right">Stock Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80">
+                  {REPAIR_CORRELATION_DATA.map((item) => {
+                    const matchedPart = parts.find((p) => p.sku === item.sku);
+                    const currentStock = matchedPart ? matchedPart.stockLevel : 0;
+
+                    return (
+                      <tr key={item.sku} className="hover:bg-slate-900/50 transition-colors">
+                        <td className="py-3.5 pr-4">
+                          <div className="font-mono text-[10px] font-bold text-amber-400">{item.sku}</div>
+                          <div className="font-bold text-white mt-0.5">{item.partName}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{item.failureMode}</div>
+                        </td>
+
+                        <td className="py-3.5 px-3">
+                          <span className="px-2.5 py-1 bg-slate-900 text-slate-300 font-bold rounded-lg border border-slate-800 text-[11px]">
+                            {item.associatedRepairTier}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-200">
+                          {item.repairsCompleted30d} jobs
+                        </td>
+
+                        <td className="py-3.5 px-3 text-center font-mono font-bold text-amber-400">
+                          {item.unitsConsumed30d} units
+                          <span className="block text-[9px] text-slate-500">
+                            ({item.reworkLossRate}% scrap)
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-3 text-center font-mono text-slate-300">
+                          {item.weeklyVelocity} / wk
+                        </td>
+
+                        <td className="py-3.5 px-3 text-center">
+                          <span
+                            className={`px-2.5 py-1 rounded-lg font-mono font-bold text-[11px] inline-block ${
+                              item.status === 'critical'
+                                ? 'bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse'
+                                : item.status === 'warning'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                            }`}
+                          >
+                            {item.daysOfSupplyLeft} Days Left
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 pl-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="text-[10px] font-mono text-slate-400 mr-1">
+                              Stock: <strong className="text-white">{currentStock}</strong>
+                            </span>
+                            {matchedPart && (
+                              <button
+                                onClick={() => handleStockChange(matchedPart.id, 5)}
+                                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] rounded-lg transition-all shadow-xs"
+                                title="Restock +5 units"
+                              >
+                                +5 Restock
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>

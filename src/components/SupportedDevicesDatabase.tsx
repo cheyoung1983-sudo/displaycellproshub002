@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, FC } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
@@ -33,11 +33,48 @@ import {
   BoardRepairCapability
 } from '../data/supportedDevicesData.ts';
 import { useToast } from './Toast.tsx';
+import { REPAIR_DB_INDEX_RECOMMENDATIONS } from '../lib/dbOptimizations.ts';
 
 interface SupportedDevicesDatabaseProps {
   onSelectDeviceForIntake?: (manufacturer: string, model: string) => void;
   onOpenPriceCalculator?: (manufacturer: string, model: string) => void;
 }
+
+/**
+ * Visual Text-Highlighting Component
+ * Highlights matching search terms with a high-contrast amber badge
+ */
+const HighlightMatch: FC<{ text: string; query: string; className?: string }> = ({ text, query, className }) => {
+  if (!query || !query.trim() || !text) {
+    return <span className={className}>{text}</span>;
+  }
+
+  const trimmed = query.trim();
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+
+  if (parts.length === 1) {
+    return <span className={className}>{text}</span>;
+  }
+
+  return (
+    <span className={className}>
+      {parts.map((part, idx) =>
+        regex.test(part) ? (
+          <mark
+            key={idx}
+            className="bg-amber-300 text-slate-950 font-black px-1 py-0.5 rounded shadow-xs mx-0.5 border border-amber-400"
+          >
+            {part}
+          </mark>
+        ) : (
+          <span key={idx}>{part}</span>
+        )
+      )}
+    </span>
+  );
+};
 
 export default function SupportedDevicesDatabase({
   onSelectDeviceForIntake,
@@ -64,6 +101,10 @@ export default function SupportedDevicesDatabase({
   const [unlistedModel, setUnlistedModel] = useState('');
   const [unlistedIssue, setUnlistedIssue] = useState('');
   const [unlistedSubmitted, setUnlistedSubmitted] = useState(false);
+
+  // SQL Index Suggestions drawer state
+  const [isSqlIndexModalOpen, setIsSqlIndexModalOpen] = useState(false);
+  const [copiedSqlKey, setCopiedSqlKey] = useState<string | null>(null);
 
   // Filter logic
   const filteredDevices = useMemo(() => {
@@ -194,13 +235,23 @@ export default function SupportedDevicesDatabase({
             </p>
           </div>
 
-          <button
-            onClick={() => setIsUnlistedModalOpen(true)}
-            className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-3.5 py-2 rounded-xl border border-blue-200 transition-all flex items-center gap-1.5"
-          >
-            <HelpCircle className="w-4 h-4" />
-            <span>Device Not Listed? Request Assessment</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setIsSqlIndexModalOpen(true)}
+              className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl border border-slate-200 transition-all flex items-center gap-1.5"
+            >
+              <HardDrive className="w-4 h-4 text-blue-600" />
+              <span>SQL Index Suggestions</span>
+            </button>
+
+            <button
+              onClick={() => setIsUnlistedModalOpen(true)}
+              className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-3.5 py-2 rounded-xl border border-blue-200 transition-all flex items-center gap-1.5"
+            >
+              <HelpCircle className="w-4 h-4" />
+              <span>Device Not Listed? Request Assessment</span>
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleCheckModel} className="flex flex-col sm:flex-row gap-3">
@@ -476,7 +527,7 @@ export default function SupportedDevicesDatabase({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-1 bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider rounded-lg">
-                        {device.manufacturer}
+                        <HighlightMatch text={device.manufacturer} query={searchQuery} />
                       </span>
                       <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg border border-slate-200">
                         {device.category}
@@ -484,16 +535,22 @@ export default function SupportedDevicesDatabase({
                     </div>
 
                     <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                      {device.boardId}
+                      <HighlightMatch text={device.boardId} query={searchQuery} />
                     </span>
                   </div>
 
                   <div>
                     <h3 className="text-xl font-black text-slate-900 group-hover:text-blue-600 transition-colors">
-                      {device.modelName}
+                      <HighlightMatch text={device.modelName} query={searchQuery} />
                     </h3>
                     <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
-                      Models: {device.modelNumbers.join(', ')}
+                      Models:{' '}
+                      {device.modelNumbers.map((num, i) => (
+                        <span key={num}>
+                          {i > 0 && ', '}
+                          <HighlightMatch text={num} query={searchQuery} />
+                        </span>
+                      ))}
                     </p>
                   </div>
 
@@ -501,7 +558,9 @@ export default function SupportedDevicesDatabase({
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center gap-1.5 text-xs text-slate-700">
                       <Cpu className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <span className="font-semibold text-slate-800">{device.chipset}</span>
+                      <span className="font-semibold text-slate-800">
+                        <HighlightMatch text={device.chipset} query={searchQuery} />
+                      </span>
                     </div>
 
                     <div className="flex items-center justify-between text-[11px] pt-1">
@@ -526,7 +585,7 @@ export default function SupportedDevicesDatabase({
                           key={idx}
                           className="px-2 py-0.5 bg-slate-50 text-slate-600 text-[10px] font-medium rounded-md border border-slate-200 line-clamp-1"
                         >
-                          {symp}
+                          <HighlightMatch text={symp} query={searchQuery} />
                         </span>
                       ))}
                       {device.commonSymptoms.length > 3 && (
@@ -621,7 +680,7 @@ export default function SupportedDevicesDatabase({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="px-2.5 py-0.5 bg-slate-900 text-white text-[10px] font-black rounded uppercase">
-                      {selectedDeviceModal.manufacturer}
+                      <HighlightMatch text={selectedDeviceModal.manufacturer} query={searchQuery} />
                     </span>
                     <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded">
                       {selectedDeviceModal.category}
@@ -631,10 +690,10 @@ export default function SupportedDevicesDatabase({
                     </span>
                   </div>
                   <h2 className="text-2xl font-black text-slate-900">
-                    {selectedDeviceModal.modelName}
+                    <HighlightMatch text={selectedDeviceModal.modelName} query={searchQuery} />
                   </h2>
                   <p className="text-xs text-slate-500 font-mono">
-                    Board Architecture: <strong className="text-slate-800">{selectedDeviceModal.boardId}</strong> • Chipset: <strong className="text-slate-800">{selectedDeviceModal.chipset}</strong>
+                    Board Architecture: <strong className="text-slate-800"><HighlightMatch text={selectedDeviceModal.boardId} query={searchQuery} /></strong> • Chipset: <strong className="text-slate-800"><HighlightMatch text={selectedDeviceModal.chipset} query={searchQuery} /></strong>
                   </p>
                 </div>
 
@@ -887,6 +946,120 @@ export default function SupportedDevicesDatabase({
                   </div>
                 </form>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SQL Index Suggestions & Performance Optimization Modal */}
+      <AnimatePresence>
+        {isSqlIndexModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl max-w-4xl w-full p-6 sm:p-8 space-y-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-mono font-bold rounded-full">
+                      POSTGRESQL QUERY OPTIMIZER
+                    </span>
+                    <span className="text-xs text-slate-500 font-medium">
+                      AWS Aurora Read/Write Split Ready
+                    </span>
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-900">
+                    High-Traffic Search Column Index Recommendations
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Index suggestions specifically designed to accelerate autocomplete searches on <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">brand</code>, <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">model</code>, and <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">board_id</code> during high-concurrency technician triage lookups.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsSqlIndexModalOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Index Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {REPAIR_DB_INDEX_RECOMMENDATIONS.map((idx) => (
+                  <div
+                    key={idx.id}
+                    className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-blue-200 transition-all space-y-3 flex flex-col justify-between"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-slate-800">
+                          <span className="bg-white px-2 py-0.5 rounded border border-slate-200">{idx.table}</span>
+                          <span className="text-slate-400">/</span>
+                          <span className="text-blue-600">{idx.type}</span>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            idx.priority === 'CRITICAL'
+                              ? 'bg-rose-100 text-rose-700'
+                              : 'bg-blue-100 text-blue-700'
+                          }`}
+                        >
+                          {idx.priority}
+                        </span>
+                      </div>
+
+                      <h4 className="text-sm font-bold text-slate-900 font-mono break-all">
+                        {idx.indexName}
+                      </h4>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {idx.rationale}
+                      </p>
+
+                      <div className="bg-slate-900 text-blue-300 p-2.5 rounded-xl font-mono text-[11px] relative group overflow-hidden">
+                        <div className="flex items-center justify-between text-[9px] uppercase tracking-wider text-slate-400 mb-1">
+                          <span>SQL DDL</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(idx.sqlDDL);
+                              setCopiedSqlKey(idx.id);
+                              showToast(`Copied DDL for ${idx.indexName}`, 'success');
+                              setTimeout(() => setCopiedSqlKey(null), 2000);
+                            }}
+                            className="text-slate-300 hover:text-white flex items-center gap-1"
+                          >
+                            <span>{copiedSqlKey === idx.id ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        </div>
+                        <code className="block break-all leading-snug">{idx.sqlDDL}</code>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500 font-medium">Estimated Speedup:</span>
+                      <span className="text-emerald-700 font-bold font-mono">{idx.estimatedSpeedup}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer Summary */}
+              <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="text-slate-500">
+                  <strong className="text-slate-800">Connection Pool Engine:</strong> Configured with 5 min / 35 max connections with read/write splitting on <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-slate-700">PGHOST_READ_ONLY</code>.
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSqlIndexModalOpen(false)}
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition-all shadow-md shrink-0"
+                >
+                  Done
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

@@ -14,6 +14,7 @@ import DiagnosticPortMonitor from './DiagnosticPortMonitor.tsx';
 import ChainOfVerificationVisualizer from './ChainOfVerificationVisualizer.tsx';
 import DataSanitizationCertificate from './DataSanitizationCertificate.tsx';
 import AssetManager from './AssetManager.tsx';
+import InventoryManagement from './InventoryManagement.tsx';
 import DatabaseOptimizationPanel from './DatabaseOptimizationPanel.tsx';
 
 // 30-day turnaround time trend data (in hours)
@@ -59,7 +60,7 @@ const TECH_BENCHMARK_DATA = [
 export default function RepairAnalytics() {
   const { showToast } = useToast();
 
-  const [activeSubTab, setActiveSubTab] = useState<'metrics' | 'assets' | 'cove' | 'sanitization' | 'database'>('metrics');
+  const [activeSubTab, setActiveSubTab] = useState<'metrics' | 'inventory' | 'assets' | 'cove' | 'sanitization' | 'database'>('metrics');
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -215,10 +216,10 @@ export default function RepairAnalytics() {
         </div>
 
         {/* Sub-Tab Navigation Bar */}
-        <div className="flex flex-wrap items-center gap-2 bg-slate-100/70 p-1.5 rounded-2xl max-w-4xl">
+        <div className="flex flex-wrap items-center gap-2 bg-slate-100/70 p-1.5 rounded-2xl max-w-5xl">
           <button
             onClick={() => setActiveSubTab('metrics')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[160px] ${
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[140px] ${
               activeSubTab === 'metrics'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-900'
@@ -229,20 +230,32 @@ export default function RepairAnalytics() {
           </button>
 
           <button
+            onClick={() => setActiveSubTab('inventory')}
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[140px] ${
+              activeSubTab === 'inventory'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <GitMerge className="w-4 h-4 text-amber-600" />
+            <span>Inventory Management</span>
+          </button>
+
+          <button
             onClick={() => setActiveSubTab('assets')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[160px] ${
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[140px] ${
               activeSubTab === 'assets'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            <Package className="w-4 h-4 text-amber-600" />
-            <span>Asset Manager & Inventory</span>
+            <Package className="w-4 h-4 text-emerald-600" />
+            <span>Vault SKU Catalog</span>
           </button>
 
           <button
             onClick={() => setActiveSubTab('cove')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[160px] ${
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[140px] ${
               activeSubTab === 'cove'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-900'
@@ -254,19 +267,19 @@ export default function RepairAnalytics() {
 
           <button
             onClick={() => setActiveSubTab('sanitization')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[160px] ${
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[140px] ${
               activeSubTab === 'sanitization'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            <FileCheck className="w-4 h-4 text-emerald-600" />
+            <FileCheck className="w-4 h-4 text-teal-600" />
             <span>NIST Data Sanitization</span>
           </button>
 
           <button
             onClick={() => setActiveSubTab('database')}
-            className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[160px] ${
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 min-w-[140px] ${
               activeSubTab === 'database'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-900'
@@ -541,6 +554,17 @@ export default function RepairAnalytics() {
                 </div>
               </div>
             </div>
+          </motion.div>
+        )}
+
+        {activeSubTab === 'inventory' && (
+          <motion.div
+            key="inventory"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <InventoryManagement />
           </motion.div>
         )}
 

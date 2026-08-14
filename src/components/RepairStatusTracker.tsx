@@ -26,6 +26,8 @@ import WarrantyTrackerCard from './WarrantyTrackerCard.tsx';
 import RepairTimeEstimator from './RepairTimeEstimator.tsx';
 import DynamicCompletionCard from './DynamicCompletionCard.tsx';
 import RepairDeviceLabelQR from './RepairDeviceLabelQR.tsx';
+import RepairDocumentation from './RepairDocumentation.tsx';
+import { Microscope } from 'lucide-react';
 
 interface TelemetrySummary {
   batteryHealthPercentage: number;
@@ -77,6 +79,7 @@ export default function RepairStatusTracker() {
   const [nfcScanHistory, setNfcScanHistory] = useState<NfcScanLog[]>([]);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isNfcOpen, setIsNfcOpen] = useState(false);
+  const [isDocOpen, setIsDocOpen] = useState(false);
 
   useEffect(() => {
     // Load local history if available
@@ -643,6 +646,15 @@ export default function RepairStatusTracker() {
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Bench Lead Work Notes</span>
                     </div>
                   </div>
+
+                  <button
+                    onClick={() => setIsDocOpen(true)}
+                    className="px-3.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+                    title="Log diagnostic readings, thermal captures & microscope photos"
+                  >
+                    <Microscope className="w-3.5 h-3.5" />
+                    <span>Open Diagnostic Log</span>
+                  </button>
                 </div>
 
                 <p className="text-sm font-medium text-slate-600 bg-slate-50 p-5 rounded-2xl leading-relaxed italic border-l-4 border-slate-900">
@@ -652,8 +664,11 @@ export default function RepairStatusTracker() {
 
               <div className="pt-4 flex items-center justify-between text-xs">
                 <span className="text-slate-400 font-medium">WA RCW 19.415 Compliant Laboratory</span>
-                <button className="text-blue-600 font-bold hover:underline flex items-center gap-1">
-                  Contact Lab Direct <ArrowRight className="w-3.5 h-3.5" />
+                <button
+                  onClick={() => setIsDocOpen(true)}
+                  className="text-blue-600 font-bold hover:underline flex items-center gap-1"
+                >
+                  View Steps & Evidence Photos <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -701,6 +716,40 @@ export default function RepairStatusTracker() {
           fetchTicketStatus(nfcTicket);
         }}
       />
+
+      {/* Technician Diagnostic Documentation Modal */}
+      <AnimatePresence>
+        {isDocOpen && ticketData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-5xl my-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <RepairDocumentation
+                initialTicketNumber={ticketData.ticketNumber}
+                customerName={ticketData.customerName}
+                deviceModel={ticketData.deviceModel}
+                serviceTier={ticketData.serviceTier}
+                onClose={() => setIsDocOpen(false)}
+                onSyncNotesToTracker={(updatedNotes) => {
+                  setTicketData((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          technicianNotes: updatedNotes,
+                          lastUpdated: 'Just now (Diagnostic Log)',
+                        }
+                      : null
+                  );
+                }}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
