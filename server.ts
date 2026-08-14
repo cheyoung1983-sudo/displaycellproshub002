@@ -5,7 +5,6 @@
 
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import { getToken, getTokenResponse } from '@vercel/connect';
 import { handleVercelConnectError } from './src/utils/vercelConnect.ts';
@@ -17,6 +16,7 @@ import {
   videoGuideCache,
   withTimeout
 } from './src/lib/serverSecurity.ts';
+import { generateFallbackDiagnosticPath } from './src/lib/diagnosticFallback.ts';
 import {
   DiagnoseSchema,
   SmartTriageSchema,
@@ -581,8 +581,8 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
     }
   });
 
-  // Gemini AI Recommended Diagnostic Path Endpoint
-  app.post('/api/ai/diagnostic-path', aiRateLimiter, async (req, res) => {
+  // Gemini AI Recommended Diagnostic Path Endpoint (Handles both /api/ai/diagnostic-path and /api/diagnostic-path)
+  const handleDiagnosticPath = async (req: express.Request, res: express.Response) => {
     const parseResult = DiagnosticPathSchema.safeParse(req.body);
     const { 
       repairNotes = '', 
@@ -672,7 +672,7 @@ Produce a structured JSON plan with step-by-step bench actions, expected reading
             },
           });
 
-          const response = await withTimeout(aiPromise, 4000, null);
+          const response = await withTimeout(aiPromise, 4500, null);
 
           if (response?.text) {
             const parsed = JSON.parse(response.text);
@@ -683,146 +683,37 @@ Produce a structured JSON plan with step-by-step bench actions, expected reading
         }
       }
 
-      // Fallback rule-based diagnostic path generator when GEMINI_API_KEY is omitted or failed
-      const notesLower = (repairNotes || '').toLowerCase();
-      let primaryDiagnosis = "Power & Charge Rail Delivery Interruption";
-      let complexityLevel = "Tier 1 (Standard Assembly)";
-      let confidenceScore = 88;
-      let estimatedBenchTimeMinutes = 20;
-      let technicianBriefing = `Intake analysis for ${deviceManufacturer} ${deviceModel}. Reported notes indicate power/boot issue. Recommended initial bench current draw check before component isolation.`;
-      
-      let steps = [
-        {
-          stepNumber: 1,
-          actionTitle: "DC USB Power Meter Consumption Check",
-          instructions: "Connect device to USB-C inline power meter at 5V/9V/20V. Observe handshake voltage step-up and current draw.",
-          expectedReading: "1.2A - 2.1A @ 9V or 20V nominal charging",
-          toolRequired: "USB-C Inline Ammeter / Power Analyzer"
-        },
-        {
-          stepNumber: 2,
-          actionTitle: "Visual Connector & Flex Pin Inspection",
-          instructions: "Examine battery connector and charge port flex pins under stereo microscope for physical corrosion or pin displacement.",
-          expectedReading: "Zero debris, uniform gold pin contact alignment",
-          toolRequired: "Trinocular Stereo Microscope"
-        },
-        {
-          stepNumber: 3,
-          actionTitle: "Primary Power Rail Impedance Measurement",
-          instructions: "Measure diode mode resistance to ground on VDD_MAIN and VDD_BOOST filter capacitors.",
-          expectedReading: "0.350V - 0.480V diode drop (non-zero short)",
-          toolRequired: "Digital Multimeter (Diode Mode)"
-        }
-      ];
-
-      if (notesLower.includes('screen') || notesLower.includes('crack') || notesLower.includes('display') || notesLower.includes('lines') || notesLower.includes('black') || symptoms.some(s => s.toLowerCase().includes('screen') || s.toLowerCase().includes('display'))) {
-        primaryDiagnosis = "Display OLED Panel / Digitizer Flex Damage";
-        complexityLevel = "Tier 2 (Display Renewal)";
-        confidenceScore = 94;
-        estimatedBenchTimeMinutes = 30;
-        technicianBriefing = `Notes indicate visual display artifacts or touch failure on ${deviceManufacturer} ${deviceModel}. Verify backlight coil and OLED driver IC before replacing glass.`;
-        steps = [
-          {
-            stepNumber: 1,
-            actionTitle: "Backlight / Image Flashlight Isolation",
-            instructions: "Shine 1000 lumen flashlight onto dark screen while powering on to check for faint GPU image rendering.",
-            expectedReading: "Faint display UI visible if backlight circuit failed; Pitch black if OLED panel damaged",
-            toolRequired: "High-Lumen Focus Flashlight"
-          },
-          {
-            stepNumber: 2,
-            actionTitle: "FPC Connector & ESD Diode Check",
-            instructions: "Disconnect battery, disconnect display FPC, and inspect socket contacts for bent ground pins.",
-            expectedReading: "Clean gold pins without blue/green oxidation",
-            toolRequired: "ESD Precision Tweezers & Microscope"
-          },
-          {
-            stepNumber: 3,
-            actionTitle: "Test Assembly Bench Fitting",
-            instructions: "Attach genuine OEM test screen module outside chassis before removing factory adhesives.",
-            expectedReading: "100% digitizer touch grid response across all screen quadrants",
-            toolRequired: "OEM Test Display Panel"
-          }
-        ];
-      } else if (notesLower.includes('short') || notesLower.includes('water') || notesLower.includes('liquid') || notesLower.includes('solder') || notesLower.includes('dead') || telemetry?.isShortToGround) {
-        primaryDiagnosis = "VDD_MAIN Logic Board Rail Short-Circuit";
-        complexityLevel = "Tier 3 (Micro-Soldering Rework)";
-        confidenceScore = 96;
-        estimatedBenchTimeMinutes = 65;
-        technicianBriefing = `High urgency intake for ${deviceManufacturer} ${deviceModel}. Notes suggest liquid ingress or logic board short. Follow thermal imaging protocol.`;
-        steps = [
-          {
-            stepNumber: 1,
-            actionTitle: "Direct Current PSU Thermal Cloud Test",
-            instructions: "Connect DC Bench Power Supply to battery terminals with 1.0A current limit. Scan board under thermal camera.",
-            expectedReading: "Immediate thermal hot spot bloom (>60°C) over faulty decoupling capacitor",
-            toolRequired: "Thermal Imaging Camera / Rosin Atomizer"
-          },
-          {
-            stepNumber: 2,
-            actionTitle: "Short Capacitor Clearance / Rework",
-            instructions: "Apply flux and heat shorted SMD ceramic capacitor with hot air rework station at 380°C to lift from pad.",
-            expectedReading: "Diode drop resistance returns to normal (>0.350V) on rail",
-            toolRequired: "Hot Air Rework Station & Micro-Soldering Iron"
-          },
-          {
-            stepNumber: 3,
-            actionTitle: "Post-Rework Boot & Power Draw Audit",
-            instructions: "Re-apply thermal pad, reconnect battery, and boot device while monitoring DC power bench curve.",
-            expectedReading: "Dynamic 0.1A to 1.8A boot loop cycle transitioning to lock screen",
-            toolRequired: "DC Bench Power Supply"
-          }
-        ];
-      }
+      // Fallback rule-based diagnostic path generator when GEMINI_API_KEY is omitted or timed out
+      const fallbackPath = generateFallbackDiagnosticPath({
+        repairNotes,
+        deviceManufacturer,
+        deviceModel,
+        symptoms,
+        telemetry
+      });
 
       return res.json({
         success: true,
-        path: {
-          primaryDiagnosis,
-          confidenceScore,
-          complexityLevel,
-          estimatedBenchTimeMinutes,
-          technicianBriefing,
-          diagnosticSteps: steps,
-          requiredTools: ["Digital Multimeter", "Stereo Microscope", "Precision Driver Kit", "DC Bench Power Supply"],
-          riskPrecautions: [
-            "Always disconnect battery BEFORE disconnecting display or camera flex cables.",
-            "Use ESD grounding wrist strap when handling exposed mainboard PCB.",
-            "Do not exceed 380°C hot air temperature near CPU or NAND memory shield."
-          ],
-          partsLikelyNeeded: [
-            "OEM Battery / Port Flex",
-            "Thermal Conductive Pad",
-            "Replacement 0402 SMD Capacitors"
-          ]
-        }
+        path: fallbackPath
       });
     } catch (error) {
       console.error('Diagnostic Path API Error:', error);
+      const fallbackPath = generateFallbackDiagnosticPath({
+        repairNotes,
+        deviceManufacturer,
+        deviceModel,
+        symptoms,
+        telemetry
+      });
       res.json({
         success: true,
-        path: {
-          primaryDiagnosis: "Bench Diagnostic Verification",
-          confidenceScore: 85,
-          complexityLevel: "Tier 1 (Standard Assembly)",
-          estimatedBenchTimeMinutes: 20,
-          technicianBriefing: `Diagnostic verification for ${deviceManufacturer} ${deviceModel}. Proceed with standard multimeter probe.`,
-          diagnosticSteps: [
-            {
-              stepNumber: 1,
-              actionTitle: "Power Rail & Current Check",
-              instructions: "Connect to bench power supply and verify current draw.",
-              expectedReading: "Nominal 1.0A - 2.0A",
-              toolRequired: "DC Bench Power Supply"
-            }
-          ],
-          requiredTools: ["Digital Multimeter", "Precision Drivers"],
-          riskPrecautions: ["Follow ESD safety protocols"],
-          partsLikelyNeeded: ["OEM Flex / Connector"]
-        }
+        path: fallbackPath
       });
     }
-  });
+  };
+
+  app.post('/api/ai/diagnostic-path', aiRateLimiter, handleDiagnosticPath);
+  app.post('/api/diagnostic-path', aiRateLimiter, handleDiagnosticPath);
 
   // Repair Status Workload Calculation API
   app.post('/api/repair-status/calculate-completion', (req, res) => {
@@ -1416,6 +1307,7 @@ Generate exactly 4-5 well-thought-out scenes.
   async function startServer() {
     if (!process.env.VERCEL) {
       if (process.env.NODE_ENV !== 'production') {
+        const { createServer: createViteServer } = await import('vite');
         const vite = await createViteServer({
           server: { middlewareMode: true },
           appType: 'spa',
