@@ -5,7 +5,6 @@
 
 import express from 'express';
 import path from 'path';
-import { GoogleGenAI, Type } from '@google/genai';
 import { getToken, getTokenResponse } from '@vercel/connect';
 import { handleVercelConnectError } from './src/utils/vercelConnect.ts';
 import {
@@ -18,15 +17,12 @@ import {
 } from './src/lib/serverSecurity.ts';
 import { generateFallbackDiagnosticPath } from './src/lib/diagnosticFallback.ts';
 import {
-  DiagnoseSchema,
-  SmartTriageSchema,
-  DiagnosticPathSchema,
-  CalculateCompletionSchema,
-  BookingScheduleSchema,
-  SupportMessageSchema,
-  AcademyVideoSchema,
-  SupportChatSchema
-} from './src/lib/schemas.ts';
+  diagnoseIssue,
+  smartTriage,
+  generateDiagnosticPath,
+  generateSupportReply,
+  generateAcademyVideo
+} from './src/lib/aiService.ts';
 
 export const app = express();
 const PORT = 3000;
@@ -68,6 +64,17 @@ const formRateLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   message: 'Submission limit reached. Please wait a moment before resubmitting.'
 });
+
+import {
+  DiagnoseSchema,
+  SmartTriageSchema,
+  DiagnosticPathSchema,
+  CalculateCompletionSchema,
+  BookingScheduleSchema,
+  SupportMessageSchema,
+  AcademyVideoSchema,
+  SupportChatSchema
+} from './src/lib/schemas.ts';
 
 const VERCEL_CONNECT_RESOURCE = 'mcp.vercel.com/cheyoung1983-sudo-www-displaycellpros-com-refractored';
 
@@ -344,85 +351,33 @@ app.post('/api/auth/vercel-connect/token', async (req, res) => {
   }
 });
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || '',
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
-  }
-});
-
   // Gemini AI Diagnostic Assistant
   app.post('/api/ai/diagnose', aiRateLimiter, async (req, res) => {
     const parseResult = DiagnoseSchema.safeParse(req.body);
-    const { telemetry, customerReportedIssue, deviceModel } = parseResult.success 
+    const data = parseResult.success
       ? parseResult.data 
       : { telemetry: undefined, customerReportedIssue: '', deviceModel: 'Client Unit' };
 
-    const cacheKey = `diag_${deviceModel}_${telemetry?.ammeterDrawAmps}_${telemetry?.isShortToGround}_${(customerReportedIssue || '').slice(0, 50)}`;
+    const cacheKey = `diag_${data.deviceModel}_${data.telemetry?.ammeterDrawAmps}_${data.telemetry?.isShortToGround}_${(data.customerReportedIssue || '').slice(0, 50)}`;
     const cached = diagnosticCache.get(cacheKey);
     if (cached) {
       return res.json({ analysis: cached, cached: true });
     }
 
     try {
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const prompt = `
-            You are the D&CP LLC Senior Technical Diagnostic Assistant. 
-            Analyze the following telemetry data and technician notes for a ${deviceModel || 'Device'} according to D&CP Engineering Specification Rev 4.0.
-            
-            INPUT DATA:
-            - Technician/Customer Notes: "${customerReportedIssue || 'No specific notes'}"
-            - Battery Health: ${telemetry?.batteryHealthPercentage ?? 90}%
-            - Battery Temperature: ${telemetry?.batteryTempCelsius ?? 22}°C
-            - Ammeter DC Current Draw: ${telemetry?.ammeterDrawAmps ?? 0}A
-            - Logical Short to Ground (Primary Rails): ${telemetry?.isShortToGround ? 'POSITIVE' : 'NEGATIVE'}
-            
-            DIAGNOSTIC MANDATES:
-            1. CLASSIFY SERVICE TIER: 
-               - TIER 1 (Power/Port): < 1.0A draw, nominal rails.
-               - TIER 2 (Display): Visual fault reported, current nominal.
-               - TIER 3 (Board Rework): > 2.0A draw OR Short detected.
-            
-            2. TECHNICAL ANALYSIS:
-               - If short detected: Evaluate VDD_MAIN and VDD_BOOST rails. Suggest thermal camera inspection or rosin cloud method for heat bloom detection.
-               - If Current > 5.0A: Flag for immediate short-circuit rework (Level 2 VDD_MAIN short).
-               - Calculate R_rail (Ohm's Law) if current is abnormal (assuming 4.2V nominal).
-            
-            3. SAFETY PROTOCOL:
-               - If Temp > 45°C: Enforce MANDATORY thermal lockout status.
-            
-            4. CUSTOMER INVOICE SUMMARY:
-               - Provide a professional, high-level summary of the diagnostic finding.
-               - Mention compliance with WA RCW 19.415.
-            
-            Response must be structured, technical, and use markdown.
-          `;
+      const analysis = await diagnoseIssue(data);
 
-          const aiPromise = ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: prompt,
-          });
-
-          const response = await withTimeout(aiPromise, 4000, null);
-
-          if (response?.text) {
-            diagnosticCache.set(cacheKey, response.text);
-            return res.json({ analysis: response.text });
-          }
-        } catch (aiErr) {
-          console.warn('Gemini API call failed, using rule-based diagnostic generator:', aiErr);
-        }
+      if (analysis) {
+        diagnosticCache.set(cacheKey, analysis);
+        return res.json({ analysis });
       }
 
       // Rule-based fallback if GEMINI_API_KEY is not configured or failed
-      const current = telemetry?.ammeterDrawAmps ?? 0;
-      const isShort = Boolean(telemetry?.isShortToGround);
+      const current = data.telemetry?.ammeterDrawAmps ?? 0;
+      const isShort = Boolean(data.telemetry?.isShortToGround);
       const tier = isShort || current > 2.0 ? 'Tier 3 (Board Rework)' : current < 1.0 ? 'Tier 1 (Power/Port)' : 'Tier 2 (Display/Assembly)';
       
-      const fallbackReport = `### D&CP Engineering Diagnostic Report\n**Device Target:** ${deviceModel || 'Client Unit'}  \n**Service Classification:** ${tier}  \n**Primary Finding:** ${isShort ? 'Logical short detected on primary power rail (VDD_MAIN).' : 'Telemetry indicates standard power delivery and logic loop analysis.'}\n\n#### Technical Analysis\n- **Current Draw:** ${current}A (${current > 2.0 ? 'Abnormal elevated draw' : 'Nominal draw'})\n- **Battery Health:** ${telemetry?.batteryHealthPercentage ?? 92}% (Nominal)\n- **Bench Protocol:** ${isShort ? 'Perform thermal imaging and rosin vapor detection to isolate shorted capacitor/PMIC.' : 'Verify dock connector flex and test battery under nominal load.'}\n\n#### Compliance & Safety\n- **WA RCW 19.415 Disclosure:** All OEM repair rights preserved. Safe non-destructive diagnostic bench scan performed.`;
+      const fallbackReport = `### D&CP Engineering Diagnostic Report\n**Device Target:** ${data.deviceModel || 'Client Unit'}  \n**Service Classification:** ${tier}  \n**Primary Finding:** ${isShort ? 'Logical short detected on primary power rail (VDD_MAIN).' : 'Telemetry indicates standard power delivery and logic loop analysis.'}\n\n#### Technical Analysis\n- **Current Draw:** ${current}A (${current > 2.0 ? 'Abnormal elevated draw' : 'Nominal draw'})\n- **Battery Health:** ${data.telemetry?.batteryHealthPercentage ?? 92}% (Nominal)\n- **Bench Protocol:** ${isShort ? 'Perform thermal imaging and rosin vapor detection to isolate shorted capacitor/PMIC.' : 'Verify dock connector flex and test battery under nominal load.'}\n\n#### Compliance & Safety\n- **WA RCW 19.415 Disclosure:** All OEM repair rights preserved. Safe non-destructive diagnostic bench scan performed.`;
       
       diagnosticCache.set(cacheKey, fallbackReport);
       return res.json({ analysis: fallbackReport });
@@ -444,64 +399,23 @@ const ai = new GoogleGenAI({
       });
     }
 
-    const { deviceModel, symptomDescription } = parseResult.data;
-    const cacheKey = `triage_${deviceModel}_${symptomDescription.trim().toLowerCase()}`;
+    const data = parseResult.data;
+    const cacheKey = `triage_${data.deviceModel}_${data.symptomDescription.trim().toLowerCase()}`;
     const cachedTriage = triageCache.get(cacheKey);
     if (cachedTriage) {
       return res.json({ success: true, triage: cachedTriage, cached: true });
     }
 
     try {
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const prompt = `
-You are the Lead Hardware Triage Specialist at D&CP Spokane Lab.
-Analyze the user's reported device symptoms and model to suggest likely issue categories, service tier, confidence score, and initial DIY troubleshooting steps.
+      const triageResult = await smartTriage(data);
 
-Device Model: "${deviceModel || 'Unspecified Mobile/Computer Unit'}"
-Symptom Description: "${symptomDescription}"
-
-Return ONLY a valid JSON object matching this schema (no markdown code fences):
-{
-  "suspectedFault": "Brief title of primary suspected fault",
-  "recommendedTier": "TIER_1_POWER_PORT_REFRESH" | "TIER_2_DISPLAY_RENEWAL" | "TIER_3_MICRO_SOLDERING",
-  "recommendedTierLabel": "Tier 1 (Power/Port Refresh)" | "Tier 2 (Display Renewal)" | "Tier 3 (Board Rework)",
-  "confidenceScore": 88,
-  "summary": "2-3 sentence technical diagnosis explaining why this fault is suspected and what bench tests will verify it.",
-  "diyInitialSteps": [
-    "Step 1: First non-destructive troubleshooting action",
-    "Step 2: Second diagnostic check",
-    "Step 3: Pre-intake safety precaution"
-  ],
-  "technicianChecklistAdvice": [
-    "Checklist item 1 to inspect",
-    "Checklist item 2 to measure"
-  ]
-}
-          `;
-
-          const aiPromise = ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: prompt,
-            config: {
-              responseMimeType: 'application/json',
-            }
-          });
-
-          const response = await withTimeout(aiPromise, 4000, null);
-
-          if (response?.text) {
-            const parsed = JSON.parse(response.text.replace(/```json\n?|```\n?/g, '').trim());
-            triageCache.set(cacheKey, parsed);
-            return res.json({ success: true, triage: parsed });
-          }
-        } catch (aiErr) {
-          console.warn('Gemini smart-triage call failed, falling back to rule-based triage:', aiErr);
-        }
+      if (triageResult) {
+        triageCache.set(cacheKey, triageResult);
+        return res.json({ success: true, triage: triageResult });
       }
 
       // Fallback rule-based smart triage if GEMINI_API_KEY is not set or API failed
-      const descLower = (symptomDescription || '').toLowerCase();
+      const descLower = (data.symptomDescription || '').toLowerCase();
       let suspectedFault = "Power Rail & Charge IC Interruption";
       let recommendedTier = "TIER_1_POWER_PORT_REFRESH";
       let recommendedTierLabel = "Tier 1 (Power/Port Refresh)";
@@ -549,7 +463,7 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
         ];
       }
 
-      const triageResult = {
+      const fallbackResult = {
         suspectedFault,
         recommendedTier,
         recommendedTierLabel,
@@ -559,10 +473,10 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
         technicianChecklistAdvice
       };
 
-      triageCache.set(cacheKey, triageResult);
+      triageCache.set(cacheKey, fallbackResult);
       return res.json({
         success: true,
-        triage: triageResult
+        triage: fallbackResult
       });
     } catch (error) {
       console.error('Smart Triage Error:', error);
@@ -584,13 +498,7 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
   // Gemini AI Recommended Diagnostic Path Endpoint (Handles both /api/ai/diagnostic-path and /api/diagnostic-path)
   const handleDiagnosticPath = async (req: express.Request, res: express.Response) => {
     const parseResult = DiagnosticPathSchema.safeParse(req.body);
-    const { 
-      repairNotes,
-      deviceManufacturer,
-      deviceModel,
-      symptoms,
-      telemetry 
-    } = parseResult.success ? parseResult.data : {
+    const data = parseResult.success ? parseResult.data : {
       repairNotes: '',
       deviceManufacturer: 'Unknown',
       deviceModel: 'Device',
@@ -599,116 +507,19 @@ Return ONLY a valid JSON object matching this schema (no markdown code fences):
     };
 
     try {
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const prompt = `
-You are the Lead Master Bench Technician at D&CP Spokane Repair Lab (IPC-A-610 Certified).
-Analyze the technician's intake notes, selected symptoms, hardware telemetry, and device details to generate a precise, step-by-step Recommended Diagnostic Path.
+      const path = await generateDiagnosticPath(data);
 
-DEVICE INFORMATION:
-- Manufacturer: ${deviceManufacturer || 'Unknown'}
-- Model: ${deviceModel || 'Unspecified Model'}
-
-TECHNICIAN & INTAKE NOTES:
-"${repairNotes || 'No notes provided'}"
-
-REPORTED SYMPTOMS:
-${symptoms && symptoms.length > 0 ? symptoms.join(', ') : 'None listed'}
-
-HARDWARE TELEMETRY:
-${telemetry ? `
-- Ammeter Current Draw: ${telemetry.ammeterDrawAmps} A
-- Short to Ground: ${telemetry.isShortToGround ? 'YES (SHORT DETECTED)' : 'NO'}
-- Battery Health: ${telemetry.batteryHealthPercentage}%
-- Battery Temp: ${telemetry.batteryTempCelsius}°C
-` : 'No live telemetry attached'}
-
-Produce a structured JSON plan with step-by-step bench actions, expected readings, required tools, parts needed, and safety precautions.
-`;
-
-          const aiPromise = ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: prompt,
-            config: {
-              responseMimeType: 'application/json',
-              responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                  primaryDiagnosis: { type: Type.STRING },
-                  confidenceScore: { type: Type.NUMBER },
-                  complexityLevel: { type: Type.STRING },
-                  estimatedBenchTimeMinutes: { type: Type.NUMBER },
-                  technicianBriefing: { type: Type.STRING },
-                  diagnosticSteps: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        stepNumber: { type: Type.NUMBER },
-                        actionTitle: { type: Type.STRING },
-                        instructions: { type: Type.STRING },
-                        expectedReading: { type: Type.STRING },
-                        toolRequired: { type: Type.STRING },
-                      },
-                      required: ['stepNumber', 'actionTitle', 'instructions', 'expectedReading', 'toolRequired'],
-                    },
-                  },
-                  requiredTools: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  riskPrecautions: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  partsLikelyNeeded: { type: Type.ARRAY, items: { type: Type.STRING } },
-                },
-                required: [
-                  'primaryDiagnosis',
-                  'confidenceScore',
-                  'complexityLevel',
-                  'estimatedBenchTimeMinutes',
-                  'technicianBriefing',
-                  'diagnosticSteps',
-                  'requiredTools',
-                  'riskPrecautions',
-                  'partsLikelyNeeded',
-                ],
-              },
-            },
-          });
-
-          const response = await withTimeout(aiPromise, 4500, null);
-
-          if (response?.text) {
-            const parsed = JSON.parse(response.text.replace(/```json\n?|```\n?/g, '').trim());
-            return res.json({ success: true, path: parsed });
-          }
-        } catch (aiErr) {
-          console.warn('Gemini diagnostic path API call failed, falling back to rule-based engine:', aiErr);
-        }
+      if (path) {
+        return res.json({ success: true, path });
       }
 
       // Fallback rule-based diagnostic path generator when GEMINI_API_KEY is omitted or timed out
-      const fallbackPath = generateFallbackDiagnosticPath({
-        repairNotes,
-        deviceManufacturer,
-        deviceModel,
-        symptoms,
-        telemetry
-      });
-
-      return res.json({
-        success: true,
-        path: fallbackPath
-      });
+      const fallbackPath = generateFallbackDiagnosticPath(data);
+      return res.json({ success: true, path: fallbackPath });
     } catch (error) {
       console.error('Diagnostic Path API Error:', error);
-      const fallbackPath = generateFallbackDiagnosticPath({
-        repairNotes,
-        deviceManufacturer,
-        deviceModel,
-        symptoms,
-        telemetry
-      });
-      res.json({
-        success: true,
-        path: fallbackPath
-      });
+      const fallbackPath = generateFallbackDiagnosticPath(data);
+      res.json({ success: true, path: fallbackPath });
     }
   };
 
@@ -988,55 +799,24 @@ Produce a structured JSON plan with step-by-step bench actions, expected reading
         });
       }
 
-      const { message, conversationHistory, ticketId } = parseResult.data;
+      const data = parseResult.data;
 
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const historyText = Array.isArray(conversationHistory) 
-            ? conversationHistory.map((m: any) => `${m.sender === 'user' ? 'Customer' : 'Technician David'}: ${m.text}`).join('\n')
-            : '';
+      try {
+        const reply = await generateSupportReply(data);
 
-          const systemPrompt = `
-You are David Chen, Lead Systems Engineer at D&CP LLC (Spokane Lab, WA).
-You are answering a live support chat with a customer.
-Key Details:
-- D&CP provides hardware diagnostics, display renewals, battery replacements, and Tier 3 micro-soldering (VDD_MAIN shorts, BGA reballing, data recovery).
-- Spokane Lab Address: 115 S Adams St, Spokane, WA 99201.
-- Turnaround: Tier 1 (1-2 hours), Tier 2 (Same day), Tier 3 (24-48 hours).
-- Warranty: Lifetime warranty on OEM-spec parts and workmanship.
-- Compliance: Washington RCW 19.415 data privacy compliant.
-${ticketId ? `- Active Customer Ticket ID referenced: ${ticketId}` : ''}
-
-Respond concisely (2-4 sentences max), professionally, and directly in character as David Chen.
-Provide clear technical guidance, reassure data privacy, and suggest next steps (e.g. submitting an Intake form or using the Repair Status tracker).
-          `;
-
-          const userPrompt = `Recent Chat History:\n${historyText}\n\nCustomer Message: "${message}"\n\nProvide David Chen's reply:`;
-
-          const aiPromise = ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: userPrompt,
-            config: {
-              systemInstruction: systemPrompt,
+        if (reply) {
+          return res.json({
+            success: true,
+            reply: reply,
+            technician: {
+              name: "David Chen",
+              title: "Lead Systems Engineer",
+              avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"
             }
           });
-
-          const response = await withTimeout(aiPromise, 4000, null);
-
-          if (response?.text) {
-            return res.json({
-              success: true,
-              reply: response.text,
-              technician: {
-                name: "David Chen",
-                title: "Lead Systems Engineer",
-                avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200"
-              }
-            });
-          }
-        } catch (aiErr) {
-          console.warn('Gemini support chat call failed, falling back to rule-based technician response:', aiErr);
         }
+      } catch (aiErr) {
+        console.warn('Gemini support chat call failed, falling back to rule-based technician response:', aiErr);
       }
 
       // Smart fallback responses if Gemini API Key is not set
@@ -1090,57 +870,15 @@ Provide clear technical guidance, reassure data privacy, and suggest next steps 
     }
 
     try {
-      if (process.env.GEMINI_API_KEY) {
-        try {
-          const prompt = `
-You are the Master Educational Director at D&CP Spokane Repair Academy.
-Generate a structured, step-by-step video tutorial script and scene specification for a short DIY electronics repair tutorial on: "${topic}".
+      const parsed = await generateAcademyVideo(topic);
 
-Return ONLY a valid JSON object strictly matching this format without markdown code blocks:
-{
-  "id": "vid-custom-1",
-  "title": "Title of Tutorial",
-  "category": "Display",
-  "difficulty": "Beginner",
-  "estimatedTime": "2 mins",
-  "description": "Short 1-2 sentence overview of the tutorial.",
-  "requiredTools": ["Tool 1", "Tool 2"],
-  "safetyWarnings": ["Warning 1", "Warning 2"],
-  "scenes": [
-    {
-      "stepNumber": 1,
-      "title": "Scene Title",
-      "narration": "Exact spoken voiceover narration script for this step.",
-      "durationSeconds": 6,
-      "visualPrompt": "Detailed visual description of the bench demonstration.",
-      "graphicType": "warning",
-      "highlightRegion": { "x": 50, "y": 50, "label": "Key Component" },
-      "actionTip": "Pro technician tip for executing this step safely."
-    }
-  ]
-}
-Generate exactly 4-5 well-thought-out scenes.
-          `;
-
-          const aiPromise = ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: prompt,
-            config: {
-              responseMimeType: 'application/json',
-            }
-          });
-
-          const response = await withTimeout(aiPromise, 4000, null);
-
-          if (response?.text) {
-            const parsed = JSON.parse(response.text.replace(/```json\n?|```\n?/g, '').trim());
-            videoGuideCache.set(cacheKey, parsed);
-            return res.json({ success: true, video: parsed });
-          }
-        } catch (aiErr) {
-          console.warn('Gemini video generation failed, falling back to rule-based video generator:', aiErr);
-        }
+      if (parsed) {
+        videoGuideCache.set(cacheKey, parsed);
+        return res.json({ success: true, video: parsed });
       }
+    } catch (aiErr) {
+      console.warn('Gemini video generation failed, falling back to rule-based video generator:', aiErr);
+    }
 
       // Fallback AI video tutorial response if GEMINI_API_KEY is absent or failed
       const topicLower = topic.toLowerCase();
