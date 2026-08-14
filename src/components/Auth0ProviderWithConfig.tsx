@@ -86,6 +86,7 @@ export function Auth0ProviderWithConfig({ children }: Auth0ProviderWithConfigPro
       clientId={clientId}
       authorizationParams={{
         redirect_uri: redirectUri,
+        scope: 'openid profile email offline_access',
         ...(audience ? { audience } : {})
       }}
       useRefreshTokens={true}
