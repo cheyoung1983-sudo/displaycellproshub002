@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { 
   Activity, Clock, AlertTriangle, CheckCircle2, TrendingUp, Filter, Download, 
-  Cpu, Zap, ShieldCheck, RefreshCw, BarChart3, Wrench, Layers, UserCheck, GitCommit, FileCheck, Package,
+  Cpu, Zap, ShieldCheck, RefreshCw, BarChart3, Wrench, Layers, UserCheck, GitCommit, GitMerge, FileCheck, Package,
   Database
 } from 'lucide-react';
 import { useToast } from './Toast.tsx';
@@ -17,19 +17,43 @@ import AssetManager from './AssetManager.tsx';
 import InventoryManagement from './InventoryManagement.tsx';
 import DatabaseOptimizationPanel from './DatabaseOptimizationPanel.tsx';
 
-// 30-day turnaround time trend data (in hours)
-const TURNAROUND_TREND_DATA = [
-  { day: 'Jul 10', target: 6.0, avgHours: 5.8, expressHours: 2.1, volume: 11 },
-  { day: 'Jul 13', target: 6.0, avgHours: 5.2, expressHours: 1.9, volume: 14 },
-  { day: 'Jul 16', target: 6.0, avgHours: 4.9, expressHours: 1.8, volume: 12 },
-  { day: 'Jul 19', target: 6.0, avgHours: 4.5, expressHours: 1.5, volume: 16 },
-  { day: 'Jul 22', target: 6.0, avgHours: 4.8, expressHours: 1.6, volume: 10 },
-  { day: 'Jul 25', target: 6.0, avgHours: 4.2, expressHours: 1.4, volume: 15 },
-  { day: 'Jul 28', target: 6.0, avgHours: 3.9, expressHours: 1.3, volume: 18 },
-  { day: 'Jul 31', target: 6.0, avgHours: 4.1, expressHours: 1.2, volume: 13 },
-  { day: 'Aug 03', target: 6.0, avgHours: 3.7, expressHours: 1.1, volume: 19 },
-  { day: 'Aug 06', target: 6.0, avgHours: 3.5, expressHours: 1.0, volume: 17 },
-  { day: 'Aug 08', target: 6.0, avgHours: 3.4, expressHours: 0.9, volume: 21 },
+// Turnaround time and repair completion volume trend datasets by granularity
+export const TURNAROUND_TREND_DATA_DAILY = [
+  { interval: 'Aug 01', label: 'Aug 01', target: 6.0, avgHours: 4.8, expressHours: 1.8, volume: 14, completionRate: 98.6 },
+  { interval: 'Aug 02', label: 'Aug 02', target: 6.0, avgHours: 4.6, expressHours: 1.7, volume: 16, completionRate: 99.0 },
+  { interval: 'Aug 03', label: 'Aug 03', target: 6.0, avgHours: 4.1, expressHours: 1.5, volume: 12, completionRate: 98.2 },
+  { interval: 'Aug 04', label: 'Aug 04', target: 6.0, avgHours: 4.3, expressHours: 1.6, volume: 15, completionRate: 98.8 },
+  { interval: 'Aug 05', label: 'Aug 05', target: 6.0, avgHours: 3.9, expressHours: 1.4, volume: 18, completionRate: 99.2 },
+  { interval: 'Aug 06', label: 'Aug 06', target: 6.0, avgHours: 3.8, expressHours: 1.3, volume: 19, completionRate: 98.9 },
+  { interval: 'Aug 07', label: 'Aug 07', target: 6.0, avgHours: 3.7, expressHours: 1.2, volume: 17, completionRate: 99.1 },
+  { interval: 'Aug 08', label: 'Aug 08', target: 6.0, avgHours: 3.5, expressHours: 1.1, volume: 22, completionRate: 99.4 },
+  { interval: 'Aug 09', label: 'Aug 09', target: 6.0, avgHours: 3.6, expressHours: 1.2, volume: 20, completionRate: 98.7 },
+  { interval: 'Aug 10', label: 'Aug 10', target: 6.0, avgHours: 3.4, expressHours: 1.0, volume: 24, completionRate: 99.5 },
+  { interval: 'Aug 11', label: 'Aug 11', target: 6.0, avgHours: 3.3, expressHours: 0.9, volume: 21, completionRate: 99.2 },
+  { interval: 'Aug 12', label: 'Aug 12', target: 6.0, avgHours: 3.4, expressHours: 1.0, volume: 25, completionRate: 99.3 },
+  { interval: 'Aug 13', label: 'Aug 13', target: 6.0, avgHours: 3.2, expressHours: 0.9, volume: 26, completionRate: 99.6 },
+  { interval: 'Aug 14', label: 'Aug 14 (Today)', labelShort: 'Today', target: 6.0, avgHours: 3.1, expressHours: 0.8, volume: 28, completionRate: 99.7 },
+];
+
+export const TURNAROUND_TREND_DATA_WEEKLY = [
+  { interval: 'W26 (Jun 22)', label: 'Week 26', target: 6.0, avgHours: 5.6, expressHours: 2.1, volume: 74, completionRate: 97.4 },
+  { interval: 'W27 (Jun 29)', label: 'Week 27', target: 6.0, avgHours: 5.2, expressHours: 1.9, volume: 82, completionRate: 97.9 },
+  { interval: 'W28 (Jul 06)', label: 'Week 28', target: 6.0, avgHours: 4.8, expressHours: 1.8, volume: 88, completionRate: 98.2 },
+  { interval: 'W29 (Jul 13)', label: 'Week 29', target: 6.0, avgHours: 4.5, expressHours: 1.6, volume: 92, completionRate: 98.5 },
+  { interval: 'W30 (Jul 20)', label: 'Week 30', target: 6.0, avgHours: 4.1, expressHours: 1.4, volume: 96, completionRate: 98.8 },
+  { interval: 'W31 (Jul 27)', label: 'Week 31', target: 6.0, avgHours: 3.8, expressHours: 1.3, volume: 104, completionRate: 99.1 },
+  { interval: 'W32 (Aug 03)', label: 'Week 32', target: 6.0, avgHours: 3.5, expressHours: 1.1, volume: 118, completionRate: 99.4 },
+  { interval: 'W33 (Aug 10)', label: 'Week 33 (Current)', labelShort: 'W33', target: 6.0, avgHours: 3.2, expressHours: 0.9, volume: 126, completionRate: 99.6 },
+];
+
+export const TURNAROUND_TREND_DATA_MONTHLY = [
+  { interval: 'Feb 2026', label: 'Feb 2026', target: 6.0, avgHours: 6.2, expressHours: 2.5, volume: 260, completionRate: 96.8 },
+  { interval: 'Mar 2026', label: 'Mar 2026', target: 6.0, avgHours: 5.7, expressHours: 2.2, volume: 295, completionRate: 97.3 },
+  { interval: 'Apr 2026', label: 'Apr 2026', target: 6.0, avgHours: 5.1, expressHours: 1.9, volume: 318, completionRate: 98.0 },
+  { interval: 'May 2026', label: 'May 2026', target: 6.0, avgHours: 4.4, expressHours: 1.6, volume: 345, completionRate: 98.5 },
+  { interval: 'Jun 2026', label: 'Jun 2026', target: 6.0, avgHours: 3.9, expressHours: 1.4, volume: 382, completionRate: 98.9 },
+  { interval: 'Jul 2026', label: 'Jul 2026', target: 6.0, avgHours: 3.6, expressHours: 1.2, volume: 412, completionRate: 99.2 },
+  { interval: 'Aug 2026 (MTD)', label: 'Aug 2026', labelShort: 'Aug', target: 6.0, avgHours: 3.3, expressHours: 1.0, volume: 438, completionRate: 99.5 },
 ];
 
 // Common Failure Modes & Root Cause Rates
@@ -61,15 +85,28 @@ export default function RepairAnalytics() {
   const { showToast } = useToast();
 
   const [activeSubTab, setActiveSubTab] = useState<'metrics' | 'inventory' | 'assets' | 'cove' | 'sanitization' | 'database'>('metrics');
+  const [granularity, setGranularity] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Active trend data by granularity
+  const activeTrendData = granularity === 'daily' 
+    ? TURNAROUND_TREND_DATA_DAILY 
+    : granularity === 'weekly' 
+    ? TURNAROUND_TREND_DATA_WEEKLY 
+    : TURNAROUND_TREND_DATA_MONTHLY;
+
+  const totalCompletedInView = activeTrendData.reduce((acc, curr) => acc + curr.volume, 0);
+  const avgTurnaroundInView = (activeTrendData.reduce((acc, curr) => acc + curr.avgHours, 0) / activeTrendData.length).toFixed(1);
+  const avgExpressInView = (activeTrendData.reduce((acc, curr) => acc + curr.expressHours, 0) / activeTrendData.length).toFixed(1);
+  const avgCompletionRateInView = (activeTrendData.reduce((acc, curr) => acc + curr.completionRate, 0) / activeTrendData.length).toFixed(1);
 
   const handleRefreshData = () => {
     setIsRefreshing(true);
     setTimeout(() => {
       setIsRefreshing(false);
-      showToast('30-Day Laboratory Repair Metrics refreshed from Spokane Lab DB.', 'success');
+      showToast(`Laboratory Repair Metrics refreshed (${granularity.toUpperCase()} view from Spokane Lab DB).`, 'success');
     }, 600);
   };
 
@@ -78,12 +115,13 @@ export default function RepairAnalytics() {
       showToast('Generating Laboratory Analytics & Telemetry Report (CSV)...', 'info');
 
       // 1. Build Turnaround Trends Section
-      const trendHeader = ['Date', 'Standard Repair (Hours)', 'Express Pass (Hours)', 'Job Volume'];
-      const trendRows = TURNAROUND_TREND_DATA.map(row => [
-        row.day,
+      const trendHeader = ['Interval Label', 'Standard Repair (Hours)', 'Express Pass (Hours)', 'Job Volume', 'Completion Rate (%)'];
+      const trendRows = activeTrendData.map(row => [
+        `"${row.label}"`,
         row.avgHours,
         row.expressHours,
-        row.volume
+        row.volume,
+        `${row.completionRate}%`
       ]);
 
       // 2. Build Failure Modes Section
@@ -119,9 +157,9 @@ export default function RepairAnalytics() {
       const csvLines = [
         `"D&CP Spokane Laboratory - Repair Telemetry & Failure Analysis Report"`,
         `"Report Generated: ${new Date().toLocaleString()}"`,
-        `"Time Range Filter: ${timeRange.toUpperCase()} | Failure Category Filter: ${selectedCategory}"`,
+        `"Granularity: ${granularity.toUpperCase()} | Time Range Filter: ${timeRange.toUpperCase()} | Failure Category Filter: ${selectedCategory}"`,
         ``,
-        `"--- SECTION 1: TURNAROUND TIME VELOCITY (HOURS) ---"`,
+        `"--- SECTION 1: REPAIR VOLUME & TURNAROUND TIME VELOCITY (${granularity.toUpperCase()}) ---"`,
         trendHeader.join(','),
         ...trendRows.map(r => r.join(',')),
         ``,
@@ -144,14 +182,14 @@ export default function RepairAnalytics() {
       
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      const filename = `Spokane_Lab_Telemetry_${timeRange}_${selectedCategory.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+      const filename = `Spokane_Lab_Telemetry_${granularity}_${timeRange}_${selectedCategory.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
       showToast(`Export complete: ${filename} downloaded.`, 'success');
-    } catch (err) {
+    } catch {
       showToast('Error generating CSV export file.', 'error');
     }
   };
@@ -174,11 +212,31 @@ export default function RepairAnalytics() {
               Repair Telemetry & Laboratory Engineering
             </h2>
             <p className="text-slate-500 text-xs font-medium max-w-xl">
-              Real-time bench turnaround metrics, failure mode distribution, Triage AI CoVe verification engine, and NIST SP 800-88 data sanitization audit trail.
+              Real-time bench turnaround metrics, failure mode distribution, dynamic daily/weekly/monthly repair volume telemetry, and inventory stock correlations.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Dynamic Date-Range / Granularity Selector: Daily / Weekly / Monthly */}
+            <div className="bg-slate-900 p-1 rounded-2xl flex items-center gap-1 shadow-md">
+              {(['daily', 'weekly', 'monthly'] as const).map((gran) => (
+                <button
+                  key={gran}
+                  onClick={() => {
+                    setGranularity(gran);
+                    showToast(`Switched repair analytics view to ${gran.toUpperCase()} view.`, 'info');
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all capitalize ${
+                    granularity === gran
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  {gran}
+                </button>
+              ))}
+            </div>
+
             {/* Time Filter Buttons */}
             <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1">
               {(['7d', '30d', '90d'] as const).map((range) => (
@@ -314,13 +372,15 @@ export default function RepairAnalytics() {
                 </div>
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-slate-900">3.4 hrs</span>
+                    <span className="text-3xl font-black text-slate-900">{avgTurnaroundInView} hrs</span>
                     <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
                       <TrendingUp className="w-3.5 h-3.5" />
                       -18.2%
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 font-medium mt-1">vs. 4.2 hrs previous 30-day cycle</p>
+                  <p className="text-[11px] text-slate-400 font-medium mt-1">
+                    {granularity === 'daily' ? 'Avg 14-day daily cycle' : granularity === 'weekly' ? 'Avg 8-week cycle' : 'Avg 6-month aggregate'} • Express {avgExpressInView}h
+                  </p>
                 </div>
               </motion.div>
 
@@ -336,7 +396,7 @@ export default function RepairAnalytics() {
                 </div>
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-slate-900">98.4%</span>
+                    <span className="text-3xl font-black text-slate-900">{avgCompletionRateInView}%</span>
                     <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
                       +0.6%
                     </span>
@@ -350,19 +410,21 @@ export default function RepairAnalytics() {
                 className="bg-white border border-slate-100 p-6 rounded-[2rem] shadow-xl shadow-slate-200/50 space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">30-Day Completed Jobs</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Completed Repair Volume</span>
                   <div className="w-9 h-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
                     <Activity className="w-5 h-5" />
                   </div>
                 </div>
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-slate-900">342</span>
+                    <span className="text-3xl font-black text-slate-900">{totalCompletedInView}</span>
                     <span className="text-xs font-bold text-indigo-600 flex items-center gap-0.5">
                       +14.5%
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 font-medium mt-1">11.4 repairs per operational day</p>
+                  <p className="text-[11px] text-slate-400 font-medium mt-1">
+                    {granularity === 'daily' ? `${(totalCompletedInView / activeTrendData.length).toFixed(1)} repairs / day` : granularity === 'weekly' ? `${(totalCompletedInView / activeTrendData.length).toFixed(0)} repairs / week` : `${totalCompletedInView} repairs across active range`}
+                  </p>
                 </div>
               </motion.div>
 
@@ -379,15 +441,84 @@ export default function RepairAnalytics() {
                 <div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-black text-slate-900">24.5%</span>
-                    <span className="text-xs font-bold text-amber-600">84 Board Triage</span>
+                    <span className="text-xs font-bold text-amber-600">Level 3 BGA</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 font-medium mt-1">Level 3 BGA / PMIC Component Work</p>
+                  <p className="text-[11px] text-slate-400 font-medium mt-1">PMIC / Power Rail & Liquid Rework</p>
                 </div>
               </motion.div>
             </div>
 
             {/* WebUSB Diagnostic Port Monitor */}
             <DiagnosticPortMonitor />
+
+            {/* Repair Completion Volume & Throughput Velocity Trend (New Dedicated Granular Chart) */}
+            <div className="bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-xl shadow-slate-200/50 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 font-mono font-bold text-[10px] uppercase tracking-wider rounded-md">
+                      {granularity} Dynamic View
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      Total Volume: <strong>{totalCompletedInView} units completed</strong>
+                    </span>
+                  </div>
+                  <h3 className="font-black text-xl text-slate-900 flex items-center gap-2 mt-1">
+                    <Activity className="w-5 h-5 text-indigo-600" />
+                    Repair Completion Volume & Throughput
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    Total completed repair work orders tracked across {granularity} intervals with first-pass quality yield
+                  </p>
+                </div>
+
+                {/* Granularity Toggle on Chart */}
+                <div className="flex items-center gap-2">
+                  <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1">
+                    {(['daily', 'weekly', 'monthly'] as const).map(g => (
+                      <button
+                        key={g}
+                        onClick={() => setGranularity(g)}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all capitalize ${
+                          granularity === g
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-900'
+                        }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="hidden sm:flex items-center gap-3 text-xs font-bold ml-2">
+                    <span className="flex items-center gap-1.5 text-indigo-600">
+                      <span className="w-2.5 h-2.5 bg-indigo-600 rounded-sm" /> Completed Volume
+                    </span>
+                    <span className="flex items-center gap-1.5 text-emerald-600">
+                      <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full" /> Yield %
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={activeTrendData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="interval" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }} unit=" jobs" />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: 'none', color: '#fff', fontSize: '12px' }}
+                      formatter={(val: any, name: any) => [
+                        name === 'volume' ? `${val} completed jobs` : `${val}%`,
+                        name === 'volume' ? 'Repair Volume' : 'Yield Rate'
+                      ]}
+                    />
+                    <Bar dataKey="volume" name="volume" fill="#4f46e5" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
             {/* Main Charts Grid: Turnaround Trend + Failure Modes */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -399,7 +530,7 @@ export default function RepairAnalytics() {
                       <Clock className="w-5 h-5 text-blue-600" />
                       Turnaround Time Velocity (Hours)
                     </h3>
-                    <p className="text-xs text-slate-400 font-medium mt-0.5">Average hours from intake pass scan to final quality pass</p>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">Average hours from intake scan to final quality pass ({granularity} view)</p>
                   </div>
                   <div className="flex items-center gap-4 text-xs font-bold">
                     <span className="flex items-center gap-1.5 text-blue-600">
@@ -413,7 +544,7 @@ export default function RepairAnalytics() {
 
                 <div className="h-72 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={TURNAROUND_TREND_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <AreaChart data={activeTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorAvg" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
@@ -425,7 +556,7 @@ export default function RepairAnalytics() {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                      <XAxis dataKey="interval" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                       <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#64748b' }} unit="h" />
                       <Tooltip 
                         contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: 'none', color: '#fff', fontSize: '12px' }}

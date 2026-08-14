@@ -270,16 +270,66 @@ const CORRELATION_BASE_MAP: Record<string, {
   }
 };
 
+// Granular Inventory Depletion & Restock Trend Data for Daily, Weekly, and Monthly views
+export const INVENTORY_TREND_DAILY = [
+  { interval: 'Day 1', label: 'Aug 01', consumed: 6, restocked: 15, activeJobs: 8, bufferHealth: 96 },
+  { interval: 'Day 2', label: 'Aug 02', consumed: 8, restocked: 0, activeJobs: 9, bufferHealth: 94 },
+  { interval: 'Day 3', label: 'Aug 03', consumed: 11, restocked: 20, activeJobs: 12, bufferHealth: 97 },
+  { interval: 'Day 4', label: 'Aug 04', consumed: 7, restocked: 0, activeJobs: 7, bufferHealth: 95 },
+  { interval: 'Day 5', label: 'Aug 05', consumed: 14, restocked: 10, activeJobs: 15, bufferHealth: 93 },
+  { interval: 'Day 6', label: 'Aug 06', consumed: 9, restocked: 0, activeJobs: 10, bufferHealth: 92 },
+  { interval: 'Day 7', label: 'Aug 07', consumed: 5, restocked: 25, activeJobs: 6, bufferHealth: 98 },
+  { interval: 'Day 8', label: 'Aug 08', consumed: 12, restocked: 0, activeJobs: 13, bufferHealth: 95 },
+  { interval: 'Day 9', label: 'Aug 09', consumed: 16, restocked: 30, activeJobs: 18, bufferHealth: 98 },
+  { interval: 'Day 10', label: 'Aug 10', consumed: 10, restocked: 0, activeJobs: 11, bufferHealth: 96 },
+  { interval: 'Day 11', label: 'Aug 11', consumed: 13, restocked: 12, activeJobs: 14, bufferHealth: 95 },
+  { interval: 'Day 12', label: 'Aug 12', consumed: 15, restocked: 0, activeJobs: 16, bufferHealth: 93 },
+  { interval: 'Day 13', label: 'Aug 13', consumed: 11, restocked: 18, activeJobs: 12, bufferHealth: 96 },
+  { interval: 'Day 14', label: 'Aug 14', consumed: 8, restocked: 0, activeJobs: 9, bufferHealth: 95 },
+];
+
+export const INVENTORY_TREND_WEEKLY = [
+  { interval: 'Wk 1', label: 'Week 1 (Jun 22)', consumed: 42, restocked: 50, activeJobs: 40, bufferHealth: 96 },
+  { interval: 'Wk 2', label: 'Week 2 (Jun 29)', consumed: 48, restocked: 35, activeJobs: 46, bufferHealth: 94 },
+  { interval: 'Wk 3', label: 'Week 3 (Jul 06)', consumed: 56, restocked: 60, activeJobs: 54, bufferHealth: 97 },
+  { interval: 'Wk 4', label: 'Week 4 (Jul 13)', consumed: 51, restocked: 45, activeJobs: 49, bufferHealth: 95 },
+  { interval: 'Wk 5', label: 'Week 5 (Jul 20)', consumed: 64, restocked: 70, activeJobs: 61, bufferHealth: 98 },
+  { interval: 'Wk 6', label: 'Week 6 (Jul 27)', consumed: 59, restocked: 55, activeJobs: 56, bufferHealth: 96 },
+  { interval: 'Wk 7', label: 'Week 7 (Aug 03)', consumed: 72, restocked: 80, activeJobs: 68, bufferHealth: 97 },
+  { interval: 'Wk 8', label: 'Week 8 (Aug 10)', consumed: 68, restocked: 65, activeJobs: 65, bufferHealth: 96 },
+];
+
+export const INVENTORY_TREND_MONTHLY = [
+  { interval: 'Mar', label: 'March 2026', consumed: 180, restocked: 210, activeJobs: 172, bufferHealth: 95 },
+  { interval: 'Apr', label: 'April 2026', consumed: 210, restocked: 225, activeJobs: 201, bufferHealth: 96 },
+  { interval: 'May', label: 'May 2026', consumed: 245, restocked: 260, activeJobs: 235, bufferHealth: 97 },
+  { interval: 'Jun', label: 'June 2026', consumed: 230, restocked: 240, activeJobs: 222, bufferHealth: 96 },
+  { interval: 'Jul', label: 'July 2026', consumed: 275, restocked: 290, activeJobs: 264, bufferHealth: 98 },
+  { interval: 'Aug', label: 'August 2026 (MTD)', consumed: 145, restocked: 160, activeJobs: 138, bufferHealth: 96 },
+];
+
 export default function InventoryManagement() {
   const { showToast } = useToast();
 
   const [inventory, setInventory] = useState<DatabaseInventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [dateRange, setDateRange] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'critical' | 'optimal'>('all');
   const [dbSource, setDbSource] = useState<'PostgreSQL Cluster' | 'Local Vault Cache'>('PostgreSQL Cluster');
   const [lastSyncedTime, setLastSyncedTime] = useState<string>('Just now');
+
+  // Active inventory depletion trend data
+  const activeInventoryTrend = dateRange === 'daily' 
+    ? INVENTORY_TREND_DAILY 
+    : dateRange === 'weekly' 
+    ? INVENTORY_TREND_WEEKLY 
+    : INVENTORY_TREND_MONTHLY;
+
+  const totalRangeConsumed = activeInventoryTrend.reduce((sum, item) => sum + item.consumed, 0);
+  const totalRangeRestocked = activeInventoryTrend.reduce((sum, item) => sum + item.restocked, 0);
+  const totalRangeJobs = activeInventoryTrend.reduce((sum, item) => sum + item.activeJobs, 0);
 
   // Fetch Inventory from Database / Storage
   const fetchDatabaseInventory = async () => {
@@ -521,7 +571,27 @@ export default function InventoryManagement() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Dynamic Date-Range Selector: Daily / Weekly / Monthly */}
+          <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-1">
+            {(['daily', 'weekly', 'monthly'] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => {
+                  setDateRange(range);
+                  showToast(`Inventory trends updated to ${range.toUpperCase()} view.`, 'info');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all capitalize ${
+                  dateRange === range
+                    ? 'bg-amber-500 text-slate-950 shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+
           <button
             onClick={() => {
               fetchDatabaseInventory();
@@ -557,11 +627,11 @@ export default function InventoryManagement() {
 
         <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl space-y-1">
           <div className="flex items-center justify-between text-slate-400 text-[10px] font-black uppercase tracking-wider">
-            <span>30-Day Completed Repairs</span>
+            <span>{dateRange.toUpperCase()} Consumed Parts</span>
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           </div>
-          <div className="text-2xl font-black text-emerald-400">{totalRepairsServed30d} Work Orders</div>
-          <div className="text-[10px] text-slate-500">{totalConsumed30d} Physical Parts Consumed (1.05x Ratio)</div>
+          <div className="text-2xl font-black text-emerald-400">{totalRangeConsumed} Parts</div>
+          <div className="text-[10px] text-slate-500">{totalRangeJobs} Repairs Served • +{totalRangeRestocked} Units Restocked</div>
         </div>
 
         <div className="bg-slate-950 border border-slate-800 p-5 rounded-2xl space-y-1">
@@ -582,6 +652,95 @@ export default function InventoryManagement() {
           </div>
           <div className="text-2xl font-black text-indigo-400">4.8% Scrap</div>
           <div className="text-[10px] text-slate-500">High micro-soldering precision compliance</div>
+        </div>
+      </div>
+
+      {/* Dynamic Date-Range Inventory Consumption & Restock Velocity Chart */}
+      <div className="bg-slate-950 border border-slate-800 p-6 rounded-3xl space-y-4 relative z-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 font-mono font-bold text-[10px] uppercase tracking-wider rounded border border-amber-500/30">
+                {dateRange} Trend
+              </span>
+              <span className="text-xs text-slate-400">
+                Total Consumed: <strong>{totalRangeConsumed} units</strong> • Restocked: <strong>{totalRangeRestocked} units</strong>
+              </span>
+            </div>
+            <h4 className="text-base font-black uppercase tracking-wider text-white flex items-center gap-2 mt-1">
+              <Activity className="w-5 h-5 text-amber-400" />
+              <span>Component Consumption & Restock Velocity</span>
+            </h4>
+            <p className="text-xs text-slate-400">
+              Tracking physical component consumption against batch restocks and active repair volume ({dateRange} intervals)
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Range Toggle on Chart */}
+            <div className="bg-slate-900 p-1 rounded-xl border border-slate-800 flex items-center gap-1">
+              {(['daily', 'weekly', 'monthly'] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setDateRange(r)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all capitalize ${
+                    dateRange === r
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+
+            <div className="hidden sm:flex items-center gap-4 text-[11px] font-bold ml-2">
+              <span className="flex items-center gap-1.5 text-rose-400">
+                <span className="w-2.5 h-2.5 bg-rose-500 rounded-sm" /> Consumed
+              </span>
+              <span className="flex items-center gap-1.5 text-emerald-400">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-sm" /> Restocked
+              </span>
+              <span className="flex items-center gap-1.5 text-blue-400">
+                <span className="w-2.5 h-2.5 bg-blue-500 rounded-full" /> Active Jobs
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="h-72 w-full pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={activeInventoryTrend} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorConsumed" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorRestocked" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+              <XAxis dataKey="interval" stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+              <YAxis stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} unit=" pts" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#0f172a',
+                  borderColor: '#334155',
+                  borderRadius: '1rem',
+                  color: '#f8fafc',
+                  fontSize: '12px'
+                }}
+                formatter={(val: any, name: any) => [
+                  `${val} units`,
+                  name === 'consumed' ? 'Components Consumed' : name === 'restocked' ? 'Restocked Stock' : 'Active Repairs'
+                ]}
+              />
+              <Area type="monotone" dataKey="consumed" name="consumed" stroke="#f43f5e" strokeWidth={2.5} fillOpacity={1} fill="url(#colorConsumed)" />
+              <Area type="monotone" dataKey="restocked" name="restocked" stroke="#10b981" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRestocked)" />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
