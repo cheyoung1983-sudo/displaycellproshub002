@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-export type TabType = 'home' | 'intake' | 'hardware_diag' | 'matrix' | 'calc' | 'track' | 'booking' | 'analytics' | 'academy' | 'support' | 'about' | 'blueprint';
+export type TabType = 'home' | 'intake' | 'hardware_diag' | 'matrix' | 'calc' | 'track' | 'booking' | 'analytics' | 'academy' | 'support' | 'about' | 'blueprint' | 'eleven_tts' | 'eleven_procedures' | 'eleven_flow' | 'eleven_voice_studio' | 'voice_to_circuit' | 'eleven_inspector';
 
 interface SEOProps {
   activeTab: TabType;
@@ -23,6 +23,36 @@ const TAB_META_MAP: Record<TabType, { title: string; description: string; keywor
     title: 'WebUSB Hardware Diagnostic Port & Serial Monitor | D&CP LLC',
     description: 'Real-time serial port monitor and hardware logic analyzer for technicians to read live diagnostic codes, VBUS voltage, and PMIC thermal telemetry via WebUSB.',
     keywords: 'WebUSB diagnostic tool, serial port monitor, logic analyzer, diagnostic codes, UART console, Spokane repair lab'
+  },
+  eleven_tts: {
+    title: 'ElevenLabs Voice AI Studio & Text-to-Speech | D&CP LLC',
+    description: 'Generate ultra-realistic text-to-speech voice briefings, audio logs, and repair status summaries using ElevenLabs API integration.',
+    keywords: 'ElevenLabs voice AI, text to speech, repair audio briefing, voice synthesis, ElevenLabs API'
+  },
+  eleven_procedures: {
+    title: 'ElevenLabs Conversational AI Procedures Manager | D&CP LLC',
+    description: 'Manage task-specific free-form and structured procedures for Conversational AI agents with live trigger evaluation and versioning drafts.',
+    keywords: 'ElevenLabs procedures, conversational AI agents, structured procedures, free-form instructions, AI agent workflows'
+  },
+  eleven_flow: {
+    title: 'ElevenLabs Conversation Flow & Timeouts Studio | D&CP LLC',
+    description: 'Configure conversational silence timeouts, soft thinking fillers, user interruptions, and turn eagerness for Conversational AI agents.',
+    keywords: 'ElevenLabs conversation flow, turn timeout, soft timeout, user interruptions, turn eagerness, conversational AI'
+  },
+  eleven_voice_studio: {
+    title: 'ElevenLabs Pronunciation Dictionaries & Expressive Mode | D&CP LLC',
+    description: 'Configure pronunciation lexicons (.PLS / IPA / CMU) and Eleven v3 Conversational Expressive mode for conversational AI agents.',
+    keywords: 'ElevenLabs pronunciation dictionaries, PLS lexicon, IPA, CMU, expressive mode, Eleven v3 Conversational'
+  },
+  voice_to_circuit: {
+    title: 'Voice-to-Circuit (V2C) Agent Hub | D&CP LLC Triage-AI',
+    description: 'Production-grade deployment configuration for Voice-to-Circuit conversational AI agent mapping spoken symptoms to motherboard faults and Vercel/PostgreSQL pricing.',
+    keywords: 'Voice to Circuit, V2C agent, Triage-AI, symptom to circuit, PostgreSQL pricing, ElevenLabs agent configuration'
+  },
+  eleven_inspector: {
+    title: 'ElevenLabs Agent Config Inspector | D&CP LLC Ryan Young',
+    description: 'Inspect active ElevenLabs conversational agent JSON configuration (agent_5601ky3cxy0jepdaj25fv8p0y5fn) for Ryan Young & Triage-AI diagnostics.',
+    keywords: 'ElevenLabs agent inspector, agent config JSON, Ryan Young, Triage AI, diagnostic agent configuration'
   },
   matrix: {
     title: 'Board Repair Support Matrix & Device Database | D&CP LLC',

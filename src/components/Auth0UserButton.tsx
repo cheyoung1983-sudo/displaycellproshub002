@@ -13,13 +13,15 @@ import {
   Lock, 
   Loader2,
   Shield,
-  Layers
+  Layers,
+  ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSafeAuth0 } from './Auth0ProviderWithConfig.tsx';
 import { useToast } from './Toast.tsx';
 import { evaluateUserRbac } from '../lib/auth0Rbac.ts';
 import Auth0RbacModal from './Auth0RbacModal.tsx';
+import Auth0TenantAuditReport from './Auth0TenantAuditReport.tsx';
 
 export default function Auth0UserButton() {
   const { 
@@ -36,6 +38,7 @@ export default function Auth0UserButton() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showRbacModal, setShowRbacModal] = useState(false);
+  const [showAuditModal, setShowAuditModal] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const authProfile = evaluateUserRbac(user);
@@ -193,6 +196,17 @@ export default function Auth0UserButton() {
                   <button
                     onClick={() => {
                       setIsDropdownOpen(false);
+                      setShowAuditModal(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-blue-300 hover:text-blue-200 hover:bg-slate-800 transition-colors"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Auth0 Tenant Security Audit</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
                       setShowConfigModal(true);
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
@@ -235,6 +249,12 @@ export default function Auth0UserButton() {
       <Auth0RbacModal
         isOpen={showRbacModal}
         onClose={() => setShowRbacModal(false)}
+      />
+
+      {/* Auth0 Tenant Audit Report Modal */}
+      <Auth0TenantAuditReport
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
       />
 
       {/* Auth0 Setup & Info Modal */}

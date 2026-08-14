@@ -22,7 +22,12 @@ import {
   BarChart3,
   Cpu,
   Loader2,
-  Terminal
+  Terminal,
+  Mic,
+  Workflow,
+  Sliders,
+  Bot,
+  FileCode
 } from 'lucide-react';
 import LocalLabBanner from './components/LocalLabBanner.tsx';
 import SEO from './components/SEO.tsx';
@@ -45,6 +50,12 @@ const ServiceBooking = lazy(() => import('./components/ServiceBooking.tsx'));
 const RepairAnalytics = lazy(() => import('./components/RepairAnalytics.tsx'));
 const SupportedDevicesDatabase = lazy(() => import('./components/SupportedDevicesDatabase.tsx'));
 const CompanyBlueprintGovernance = lazy(() => import('./components/CompanyBlueprintGovernance.tsx'));
+const ElevenLabsVoiceGenerator = lazy(() => import('./components/ElevenLabsVoiceGenerator.tsx'));
+const ElevenLabsProceduresManager = lazy(() => import('./components/ElevenLabsProceduresManager.tsx'));
+const ElevenLabsConversationFlow = lazy(() => import('./components/ElevenLabsConversationFlow.tsx'));
+const ElevenLabsVoiceStudioSettings = lazy(() => import('./components/ElevenLabsVoiceStudioSettings.tsx'));
+const VoiceToCircuitAgentHub = lazy(() => import('./components/VoiceToCircuitAgentHub.tsx'));
+const ElevenAgentInspector = lazy(() => import('./components/ElevenAgentInspector.tsx'));
 
 function TabLoadingSkeleton() {
   return (
@@ -61,13 +72,19 @@ function TabLoadingSkeleton() {
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'intake' | 'hardware_diag' | 'matrix' | 'calc' | 'track' | 'booking' | 'analytics' | 'academy' | 'support' | 'about' | 'blueprint'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'intake' | 'hardware_diag' | 'matrix' | 'calc' | 'track' | 'booking' | 'analytics' | 'academy' | 'support' | 'about' | 'blueprint' | 'eleven_tts' | 'eleven_procedures' | 'eleven_flow' | 'eleven_voice_studio' | 'voice_to_circuit' | 'eleven_inspector'>('home');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const tabs = [
     { id: 'home', label: 'Laboratory Store', icon: Smartphone },
     { id: 'intake', label: 'Device Intake', icon: Microscope },
     { id: 'hardware_diag', label: 'Hardware Diag Port', icon: Terminal },
+    { id: 'eleven_tts', label: 'Voice AI Studio', icon: Mic },
+    { id: 'eleven_procedures', label: 'AI Procedures', icon: Workflow },
+    { id: 'eleven_flow', label: 'Conversation Flow', icon: Sliders },
+    { id: 'eleven_voice_studio', label: 'Voice & Dictionaries', icon: Sparkles },
+    { id: 'voice_to_circuit', label: 'V2C Agent Hub', icon: Bot },
+    { id: 'eleven_inspector', label: 'Agent Config Inspector', icon: FileCode },
     { id: 'matrix', label: 'Board Database', icon: Cpu },
     { id: 'booking', label: 'Book Drop-Off', icon: Calendar },
     { id: 'calc', label: 'Price Guide', icon: Calculator },
@@ -248,6 +265,73 @@ export default function App() {
                 className="max-w-6xl mx-auto px-4"
               >
                 <HardwareDiagnosticTool standalone />
+              </motion.div>
+            )}
+
+            {activeTab === 'eleven_tts' && (
+              <motion.div
+                key="eleven_tts"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                className="max-w-4xl mx-auto px-4 py-8"
+              >
+                <ElevenLabsVoiceGenerator />
+              </motion.div>
+            )}
+
+            {activeTab === 'eleven_procedures' && (
+              <motion.div
+                key="eleven_procedures"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+              >
+                <ElevenLabsProceduresManager />
+              </motion.div>
+            )}
+
+            {activeTab === 'eleven_flow' && (
+              <motion.div
+                key="eleven_flow"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+              >
+                <ElevenLabsConversationFlow />
+              </motion.div>
+            )}
+
+            {activeTab === 'eleven_voice_studio' && (
+              <motion.div
+                key="eleven_voice_studio"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+              >
+                <ElevenLabsVoiceStudioSettings />
+              </motion.div>
+            )}
+
+            {activeTab === 'voice_to_circuit' && (
+              <motion.div
+                key="voice_to_circuit"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+              >
+                <VoiceToCircuitAgentHub />
+              </motion.div>
+            )}
+
+            {activeTab === 'eleven_inspector' && (
+              <motion.div
+                key="eleven_inspector"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+              >
+                <ElevenAgentInspector />
               </motion.div>
             )}
 
