@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
@@ -7,15 +7,26 @@ import {
 import { 
   Activity, Clock, AlertTriangle, CheckCircle2, TrendingUp, Filter, Download, 
   Cpu, Zap, ShieldCheck, RefreshCw, BarChart3, Wrench, Layers, UserCheck, GitCommit, GitMerge, FileCheck, Package,
-  Database
+  Database, Loader2
 } from 'lucide-react';
 import { useToast } from './Toast.tsx';
-import DiagnosticPortMonitor from './DiagnosticPortMonitor.tsx';
-import ChainOfVerificationVisualizer from './ChainOfVerificationVisualizer.tsx';
-import DataSanitizationCertificate from './DataSanitizationCertificate.tsx';
-import AssetManager from './AssetManager.tsx';
-import InventoryManagement from './InventoryManagement.tsx';
-import DatabaseOptimizationPanel from './DatabaseOptimizationPanel.tsx';
+
+// Code-split auxiliary heavy sub-panels for optimal load time
+const DiagnosticPortMonitor = lazy(() => import('./DiagnosticPortMonitor.tsx'));
+const ChainOfVerificationVisualizer = lazy(() => import('./ChainOfVerificationVisualizer.tsx'));
+const DataSanitizationCertificate = lazy(() => import('./DataSanitizationCertificate.tsx'));
+const AssetManager = lazy(() => import('./AssetManager.tsx'));
+const InventoryManagement = lazy(() => import('./InventoryManagement.tsx'));
+const DatabaseOptimizationPanel = lazy(() => import('./DatabaseOptimizationPanel.tsx'));
+
+function PanelLoadingFallback() {
+  return (
+    <div className="bg-white border border-slate-100 rounded-[2.5rem] p-12 flex flex-col items-center justify-center min-h-[350px] space-y-3">
+      <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading Telemetry Module...</p>
+    </div>
+  );
+}
 
 // Turnaround time and repair completion volume trend datasets by granularity
 export const TURNAROUND_TREND_DATA_DAILY = [
@@ -449,7 +460,9 @@ export default function RepairAnalytics() {
             </div>
 
             {/* WebUSB Diagnostic Port Monitor */}
-            <DiagnosticPortMonitor />
+            <Suspense fallback={<PanelLoadingFallback />}>
+              <DiagnosticPortMonitor />
+            </Suspense>
 
             {/* Repair Completion Volume & Throughput Velocity Trend (New Dedicated Granular Chart) */}
             <div className="bg-white border border-slate-100 rounded-[2.5rem] p-6 md:p-8 shadow-xl shadow-slate-200/50 space-y-6">
@@ -695,7 +708,9 @@ export default function RepairAnalytics() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
           >
-            <InventoryManagement />
+            <Suspense fallback={<PanelLoadingFallback />}>
+              <InventoryManagement />
+            </Suspense>
           </motion.div>
         )}
 
@@ -706,7 +721,9 @@ export default function RepairAnalytics() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
           >
-            <AssetManager />
+            <Suspense fallback={<PanelLoadingFallback />}>
+              <AssetManager />
+            </Suspense>
           </motion.div>
         )}
 
@@ -717,7 +734,9 @@ export default function RepairAnalytics() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
           >
-            <ChainOfVerificationVisualizer />
+            <Suspense fallback={<PanelLoadingFallback />}>
+              <ChainOfVerificationVisualizer />
+            </Suspense>
           </motion.div>
         )}
 
@@ -728,7 +747,9 @@ export default function RepairAnalytics() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
           >
-            <DataSanitizationCertificate />
+            <Suspense fallback={<PanelLoadingFallback />}>
+              <DataSanitizationCertificate />
+            </Suspense>
           </motion.div>
         )}
 
@@ -739,7 +760,9 @@ export default function RepairAnalytics() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
           >
-            <DatabaseOptimizationPanel />
+            <Suspense fallback={<PanelLoadingFallback />}>
+              <DatabaseOptimizationPanel />
+            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>

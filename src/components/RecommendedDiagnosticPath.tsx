@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Sparkles,
   Wrench,
-  AlertTriangle,
   Clock,
   CheckCircle2,
   Circle,
@@ -12,7 +11,6 @@ import {
   Cpu,
   ShieldAlert,
   ListOrdered,
-  ArrowRight,
   Layers,
   ChevronDown,
   ChevronUp,
