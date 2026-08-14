@@ -1,5 +1,6 @@
 import { useState, lazy, Suspense } from 'react';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Menu, 
@@ -400,7 +401,10 @@ export default function App() {
         </div>
       </footer>
       {import.meta.env.PROD && typeof window !== 'undefined' && window.location.hostname.includes('vercel') && (
-        <Analytics />
+        <>
+          <Analytics />
+          <SpeedInsights />
+        </>
       )}
     </div>
     </ToastProvider>
