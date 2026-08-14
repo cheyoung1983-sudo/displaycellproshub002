@@ -172,6 +172,50 @@ app.get('/api/db/migrate/indexes', async (_req, res) => {
   }
 });
 
+// Stripe Embedded Checkout Session Creation API
+app.post('/api/checkout/session', async (req, res) => {
+  try {
+    const { getStripe } = await import('./src/lib/stripe.ts');
+    const { productId, name, description, amountInCents } = req.body || {};
+
+    const stripe = getStripe();
+
+    const productName = name || `Spokane Lab Repair Tier - ${productId || 'Standard Service'}`;
+    const productDescription = description || 'Certified laboratory bench diagnostics and micro-soldering rework.';
+    const unitAmount = Number(amountInCents) > 0 ? Number(amountInCents) : 14900; // $149.00 USD default
+
+    const session = await stripe.checkout.sessions.create({
+      ui_mode: 'embedded',
+      redirect_on_completion: 'never',
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: productName,
+              description: productDescription,
+            },
+            unit_amount: unitAmount,
+          },
+          quantity: 1,
+        },
+      ],
+      mode: 'payment',
+    });
+
+    res.json({
+      status: 'ok',
+      clientSecret: session.client_secret,
+      sessionId: session.id,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message || 'Failed to create Stripe Checkout session',
+    });
+  }
+});
+
 // Database Query Benchmark Endpoint
 app.get('/api/db/benchmark', async (_req, res) => {
   try {

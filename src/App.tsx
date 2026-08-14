@@ -27,6 +27,7 @@ import LocalLabBanner from './components/LocalLabBanner.tsx';
 import SEO from './components/SEO.tsx';
 import OfflineStatusBanner from './components/OfflineStatusBanner.tsx';
 import A11yInspector from './components/A11yInspector.tsx';
+import Auth0UserButton from './components/Auth0UserButton.tsx';
 import { ToastProvider } from './components/Toast.tsx';
 
 // Code-split dynamic views with React.lazy for optimized bundle performance
@@ -117,7 +118,7 @@ export default function App() {
             })}
           </div>
 
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-3">
             <button 
               onClick={() => setActiveTab('track')}
               className="p-2 text-slate-400 hover:text-slate-900 transition-colors flex items-center gap-1.5 text-xs font-bold"
@@ -129,19 +130,24 @@ export default function App() {
             <div className="w-px h-6 bg-slate-200" />
             <button 
               onClick={() => setActiveTab('intake')}
-              className="px-6 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl shadow-lg shadow-slate-900/20 hover:scale-105 active:scale-95 transition-all"
+              className="px-5 py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl shadow-lg shadow-slate-900/20 hover:scale-105 active:scale-95 transition-all"
             >
               Start Intake
             </button>
+            <div className="w-px h-6 bg-slate-200" />
+            <Auth0UserButton />
           </div>
 
-          {/* Mobile Menu Toggle */}
-          <button 
-            className="md:hidden p-2"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            {isMenuOpen ? <X /> : <Menu />}
-          </button>
+          {/* Mobile Actions */}
+          <div className="flex md:hidden items-center gap-2">
+            <Auth0UserButton />
+            <button 
+              className="p-2"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? <X /> : <Menu />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Nav */}
